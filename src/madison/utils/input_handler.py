@@ -1,6 +1,7 @@
 """Enhanced input handling with prompt_toolkit for ESC support."""
 
 import logging
+import signal
 from typing import Optional
 
 from prompt_toolkit import PromptSession
@@ -29,11 +30,19 @@ class MadisonPrompt:
         self.interrupted = False
         self._setup_key_bindings()
 
+        # Explicitly set SIGTSTP handler to default to allow Ctrl+Z suspend
+        # (prompt_toolkit may override this, but we try to preserve it)
+        try:
+            signal.signal(signal.SIGTSTP, signal.SIG_DFL)
+        except (ValueError, RuntimeError):
+            # Some environments don't support SIGTSTP
+            pass
+
     def _setup_key_bindings(self) -> None:
         """Setup key bindings for ESC and other shortcuts.
 
-        Note: We only bind ESC and let prompt_toolkit handle all other keys,
-        including Ctrl+Z for suspend and Ctrl+C for interrupt.
+        We bind ESC for input cancellation. Other signals like Ctrl+Z (SIGTSTP)
+        should be handled by the OS/terminal and passed through to the process.
         """
         bindings = KeyBindings()
 
