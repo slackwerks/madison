@@ -14,7 +14,9 @@ from rich.syntax import Syntax
 from madison.api.client import OpenRouterClient
 from madison.api.models import Message
 from madison.core.config import Config
+from madison.core.history import HistoryManager
 from madison.core.session import Session
+from madison.core.session_manager import SessionManager
 from madison.exceptions import (
     CommandExecutionError,
     ConfigError,
@@ -25,6 +27,7 @@ from madison.tools.command_exec import CommandExecutor
 from madison.tools.file_ops import FileOperations
 from madison.tools.web_search import WebSearcher
 from madison.utils.cancellation import CancellationToken, start_esc_monitor, stop_esc_monitor
+from madison.utils.setup import run_setup_wizard
 
 # Setup logging
 logging.basicConfig(
@@ -115,14 +118,17 @@ async def _repl_loop(
             f"Model: {model}\n\n"
             f"Commands: [cyan]/read[/cyan], [cyan]/write[/cyan], [cyan]/exec[/cyan], "
             f"[cyan]/search[/cyan], [cyan]/clear[/cyan], [cyan]/history[/cyan], "
-            f"[cyan]/model[/cyan], [cyan]/quit[/cyan] ([cyan]/exit[/cyan])",
+            f"[cyan]/save[/cyan], [cyan]/load[/cyan], [cyan]/sessions[/cyan], "
+            f"[cyan]/model[/cyan], [cyan]/system[/cyan], [cyan]/quit[/cyan] ([cyan]/exit[/cyan])",
             expand=False,
         )
     )
 
-    # Initialize tools
+    # Initialize tools and managers
     cmd_executor = CommandExecutor(timeout=config.timeout)
     searcher = WebSearcher(max_results=5)
+    session_manager = SessionManager()
+    history_manager = HistoryManager()
 
     async with OpenRouterClient(config.api_key, timeout=config.timeout) as client:
         while True:
@@ -140,9 +146,12 @@ async def _repl_loop(
                     # Start ESC monitor
                     start_esc_monitor(cancel_token)
 
+                    # Add to history
+                    history_manager.add_entry(user_input, "query")
+
                     # Handle special commands
                     if await _handle_commands(
-                        user_input, session, file_ops, config, client, model, cmd_executor, searcher, cancel_token
+                        user_input, session, file_ops, config, client, model, cmd_executor, searcher, cancel_token, session_manager, history_manager
                     ):
                         continue
 
@@ -199,6 +208,8 @@ async def _handle_commands(
     cmd_executor: CommandExecutor,
     searcher: WebSearcher,
     cancel_token: CancellationToken,
+    session_manager: SessionManager,
+    history_manager: HistoryManager,
 ) -> bool:
     """Handle special commands.
 
@@ -212,6 +223,8 @@ async def _handle_commands(
         cmd_executor: Command executor
         searcher: Web searcher
         cancel_token: Cancellation token
+        session_manager: Session manager
+        history_manager: History manager
 
     Returns:
         bool: Whether a command was handled
@@ -340,10 +353,49 @@ async def _handle_commands(
             except MadisonError as e:
                 console.print(f"[red]Error:[/red] {e}")
 
+    elif command == "/save":
+        try:
+            session_name = args if args else None
+            filename = session_manager.save_session(session, session_name)
+            console.print(f"[green]✓ Session saved as:[/green] {filename}")
+            history_manager.add_entry(f"Saved session: {filename}", "command")
+        except MadisonError as e:
+            console.print(f"[red]Error:[/red] {e}")
+
+    elif command == "/load":
+        if not args:
+            console.print("[red]Usage: /load <session_name>[/red]")
+        else:
+            try:
+                loaded_session = session_manager.load_session(args)
+                session.messages = loaded_session.messages
+                session.system_prompt = loaded_session.system_prompt
+                console.print(f"[green]✓ Session loaded:[/green] {args}")
+                console.print(f"[dim]Messages: {len(session.get_history())}[/dim]")
+                history_manager.add_entry(f"Loaded session: {args}", "command")
+            except MadisonError as e:
+                console.print(f"[red]Error:[/red] {e}")
+
+    elif command == "/sessions":
+        try:
+            sessions = session_manager.list_sessions()
+            if not sessions:
+                console.print("[yellow]No saved sessions yet.[/yellow]")
+            else:
+                console.print("\n[bold]Saved Sessions:[/bold]")
+                for session_info in sessions:
+                    console.print(
+                        f"  [cyan]{session_info['filename']}[/cyan] - "
+                        f"[dim]{session_info['message_count']} messages[/dim] - "
+                        f"[dim]{session_info['created_at']}[/dim]"
+                    )
+        except Exception as e:
+            console.print(f"[red]Error:[/red] {e}")
+
     else:
         console.print(f"[red]Unknown command: {command}[/red]")
         console.print(
-            "[yellow]Available commands: /read, /write, /exec, /search, /clear, /history, /model, /system, /quit, /exit[/yellow]"
+            "[yellow]Available commands: /read, /write, /exec, /search, /clear, /history, /model, /system, /save, /load, /sessions, /quit, /exit[/yellow]"
         )
 
     return True
@@ -407,7 +459,7 @@ async def _handle_chat(
 
 @app.command()
 def config(
-    action: str = typer.Argument("show", help="Action: show, set, or reset"),
+    action: str = typer.Argument("show", help="Action: show, set, reset, or setup"),
     key: Optional[str] = typer.Argument(None, help="Config key to set"),
     value: Optional[str] = typer.Argument(None, help="Config value"),
 ):
@@ -438,8 +490,12 @@ def config(
             Config.config_file().unlink(missing_ok=True)
             console.print("[green]Configuration reset.[/green]")
 
+        elif action == "setup":
+            run_setup_wizard()
+
         else:
             console.print(f"[red]Unknown action: {action}[/red]")
+            console.print("[yellow]Available actions: show, set, reset, setup[/yellow]")
 
     except ConfigError as e:
         console.print(f"[red]Configuration Error:[/red] {e}")
