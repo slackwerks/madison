@@ -72,6 +72,9 @@ Commands available in chat:
 - `/system` - Show/set system prompt
 - `/quit` - Exit the chat
 
+**Keyboard shortcuts:**
+- `ESC` - Cancel the current operation (chat response, command execution, or search)
+
 ### Manage Configuration
 
 ```bash
