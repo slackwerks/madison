@@ -12,27 +12,26 @@ logger = logging.getLogger(__name__)
 class PlanParser:
     """Parse plans from AI model responses."""
 
-    # Patterns for detecting different action types in natural language
+    # Strict patterns - only match backtick-delimited commands
+    # These extract the command from within backticks
     EXEC_PATTERNS = [
-        r"execute:?\s*`([^`]+)`",
-        r"run:?\s*`([^`]+)`",
-        r"command:?\s*`([^`]+)`",
-        r"I'll (execute|run):?\s*`([^`]+)`",
+        r"`([^`]+)`",  # Match anything in backticks
     ]
 
+    # File path patterns - be more specific to avoid false positives
     READ_PATTERNS = [
-        r"read:?\s*['\"]?([^'\"]+)['\"]?",
-        r"read file:?\s*['\"]?([^'\"]+)['\"]?",
+        r"read(?:\s+file)?:?\s*`([^`]+)`",  # read: `path`
+        r"read(?:\s+file)?:?\s+([/\w\.\-]+)",  # read: /path/to/file
     ]
 
     WRITE_PATTERNS = [
-        r"write:?\s*['\"]?([^'\"]+)['\"]?",
-        r"create file:?\s*['\"]?([^'\"]+)['\"]?",
+        r"write(?:\s+file)?:?\s*`([^`]+)`",  # write: `path`
+        r"(?:write|create)(?:\s+file)?:?\s+([/\w\.\-]+)",  # write/create: /path/to/file
     ]
 
     SEARCH_PATTERNS = [
-        r"search:?\s*['\"]?([^'\"]+)['\"]?",
-        r"web search:?\s*['\"]?([^'\"]+)['\"]?",
+        r"search:?\s*`([^`]+)`",  # search: `query`
+        r"(?:web\s+)?search:?\s+(.+?)(?:\n|$)",  # search: query (to end of line)
     ]
 
     @classmethod
@@ -41,9 +40,9 @@ class PlanParser:
 
         Looks for structured action descriptions in the response and converts them
         to PlanAction objects. The AI should express actions using patterns like:
-        - "I'll execute: `mkdir foo`"
-        - "Read file: /path/to/file"
-        - "Search: query terms"
+        - "`mkdir foo`" (backtick-delimited command)
+        - "read: `path/to/file`"
+        - "search: `query`"
 
         Args:
             response: AI model response
@@ -52,62 +51,91 @@ class PlanParser:
             List of extracted PlanAction objects
         """
         actions = []
+        seen_commands = set()  # Track seen commands to avoid duplicates
 
-        # Look for exec commands
+        # Look for exec commands - extract from backticks first
+        # Only treat as command if it looks like a shell command
         for pattern in cls.EXEC_PATTERNS:
             matches = re.finditer(pattern, response, re.IGNORECASE)
             for match in matches:
-                command = match.group(1) if match.lastindex >= 1 else match.group(0)
-                if command:
+                command = match.group(1).strip() if match.lastindex and match.lastindex >= 1 else match.group(0).strip()
+
+                # Skip if empty, looks like a file path, or we've seen it before
+                if not command or "/" in command or command in seen_commands:
+                    continue
+
+                # Only add if it looks like a shell command (not just a word)
+                if " " in command or any(char in command for char in ["$", "-", ";"]):
+                    seen_commands.add(command)
                     actions.append(
                         PlanAction(
                             type=ActionType.EXEC,
-                            command=command.strip(),
-                            description=f"Execute: {command.strip()}",
+                            command=command,
+                            description=f"Execute: {command}",
                         )
                     )
 
         # Look for read operations
+        seen_reads = set()
         for pattern in cls.READ_PATTERNS:
             matches = re.finditer(pattern, response, re.IGNORECASE)
             for match in matches:
-                file_path = match.group(1)
-                if file_path and "write" not in response[max(0, match.start() - 20) : match.start()].lower():
-                    actions.append(
-                        PlanAction(
-                            type=ActionType.READ,
-                            file_path=file_path.strip(),
-                            description=f"Read file: {file_path.strip()}",
-                        )
+                if not match.groups():
+                    continue
+                file_path = match.group(1).strip()
+                # Skip if empty, already seen, or preceded by "write"
+                if (
+                    not file_path
+                    or file_path in seen_reads
+                    or "write" in response[max(0, match.start() - 20) : match.start()].lower()
+                ):
+                    continue
+                seen_reads.add(file_path)
+                actions.append(
+                    PlanAction(
+                        type=ActionType.READ,
+                        file_path=file_path,
+                        description=f"Read file: {file_path}",
                     )
+                )
 
         # Look for write operations
+        seen_writes = set()
         for pattern in cls.WRITE_PATTERNS:
             matches = re.finditer(pattern, response, re.IGNORECASE)
             for match in matches:
-                file_path = match.group(1)
-                if file_path:
-                    actions.append(
-                        PlanAction(
-                            type=ActionType.WRITE,
-                            file_path=file_path.strip(),
-                            description=f"Write file: {file_path.strip()}",
-                        )
+                if not match.groups():
+                    continue
+                file_path = match.group(1).strip()
+                if not file_path or file_path in seen_writes:
+                    continue
+                seen_writes.add(file_path)
+                actions.append(
+                    PlanAction(
+                        type=ActionType.WRITE,
+                        file_path=file_path,
+                        description=f"Write file: {file_path}",
                     )
+                )
 
         # Look for searches
+        seen_searches = set()
         for pattern in cls.SEARCH_PATTERNS:
             matches = re.finditer(pattern, response, re.IGNORECASE)
             for match in matches:
-                query = match.group(1)
-                if query:
-                    actions.append(
-                        PlanAction(
-                            type=ActionType.SEARCH,
-                            query=query.strip(),
-                            description=f"Search: {query.strip()}",
-                        )
+                if not match.groups():
+                    continue
+                query = match.group(1).strip()
+                if not query or query in seen_searches:
+                    continue
+                seen_searches.add(query)
+                actions.append(
+                    PlanAction(
+                        type=ActionType.SEARCH,
+                        query=query,
+                        description=f"Search: {query}",
                     )
+                )
 
         return actions
 

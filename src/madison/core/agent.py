@@ -216,16 +216,23 @@ class Agent:
 
 When a user asks you to do something, your job is to:
 1. Understand their intent
-2. Generate a plan of specific actions to accomplish it
-3. Express those actions clearly
+2. Briefly explain your plan
+3. Express specific actions to execute it
 
-Express actions using these patterns:
-- Shell commands: I'll execute: `command here`
-- Read files: Read file: /path/to/file
-- Write files: Write file: /path/to/file (with content following)
-- Search: Search: query terms here
+IMPORTANT: Use backticks (`) to delimit all actions and commands:
 
-For simple tasks, the plan is simple. For complex tasks, break it into steps.
+Action Format:
+- Shell commands: `command with args here` (e.g., `mkdir foo` or `ls -la`)
+- Read files: read: `path/to/file`
+- Write files: write: `path/to/file`
+- Search: search: `query terms`
 
-Always be clear about what you're going to do before doing it.
-After expressing your plan, execute it."""
+Examples of correct format:
+- "I'll create the directory: `mkdir foo`"
+- "Read the file: `README.md`"
+- "Search for info: `python documentation`"
+
+CRITICAL: Always put commands/paths in backticks. Do not use quotes or other delimiters.
+
+For simple tasks, give one action. For complex tasks, list multiple actions.
+Keep actions concise and clear."""
