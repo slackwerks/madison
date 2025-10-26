@@ -118,7 +118,7 @@ async def _repl_loop(
             f"[bold]Madison[/bold] - OpenRouter CLI\n"
             f"Model: {config.default_model}\n\n"
             f"Commands: [cyan]/read[/cyan], [cyan]/write[/cyan], [cyan]/exec[/cyan], "
-            f"[cyan]/search[/cyan], [cyan]/clear[/cyan], [cyan]/history[/cyan], "
+            f"[cyan]/search[/cyan], [cyan]/ask[/cyan], [cyan]/clear[/cyan], [cyan]/history[/cyan], "
             f"[cyan]/save[/cyan], [cyan]/load[/cyan], [cyan]/sessions[/cyan], "
             f"[cyan]/model[/cyan], [cyan]/system[/cyan], [cyan]/quit[/cyan] ([cyan]/exit[/cyan])",
             expand=False,
@@ -392,10 +392,58 @@ async def _handle_commands(
         except Exception as e:
             console.print(f"[red]Error:[/red] {e}")
 
+    elif command == "/ask":
+        if not args:
+            console.print("[red]Usage: /ask <model> <prompt>[/red]")
+            console.print("[dim]Examples:[/dim]")
+            console.print("  /ask gpt-4 What is 2+2?")
+            console.print("  /ask openrouter/auto Hello!")
+        else:
+            # Parse model and prompt: /ask <model> <prompt>
+            parts = args.split(maxsplit=1)
+            if len(parts) == 2:
+                specific_model, prompt = parts
+                try:
+                    # Add user message to session
+                    session.add_message("user", prompt)
+
+                    # Get response from API with specific model (streaming)
+                    console.print("\n[bold cyan]Assistant:[/bold cyan]", end=" ")
+
+                    response_text = ""
+                    async for token in client.chat_stream(
+                        messages=session.get_messages(),
+                        model=specific_model,
+                        temperature=config.temperature,
+                        max_tokens=config.max_tokens,
+                    ):
+                        # Check if cancelled
+                        if cancel_token.is_cancelled:
+                            console.print("\n[yellow]Response interrupted by user.[/yellow]")
+                            break
+
+                        # Write token directly to the console
+                        console.file.write(token)
+                        console.file.flush()
+                        response_text += token
+
+                    console.print()
+
+                    # Only add to session if not cancelled
+                    if response_text and not cancel_token.is_cancelled:
+                        session.add_message("assistant", response_text)
+
+                    history_manager.add_entry(f"Asked {specific_model}: {prompt[:50]}...", "query")
+                except Exception as e:
+                    logger.exception("Error in /ask command")
+                    console.print(f"\n[red]Error:[/red] {e}")
+            else:
+                console.print("[red]Usage: /ask <model> <prompt>[/red]")
+
     else:
         console.print(f"[red]Unknown command: {command}[/red]")
         console.print(
-            "[yellow]Available commands: /read, /write, /exec, /search, /clear, /history, /model, /system, /save, /load, /sessions, /quit, /exit[/yellow]"
+            "[yellow]Available commands: /read, /write, /exec, /search, /ask, /clear, /history, /model, /system, /save, /load, /sessions, /quit, /exit[/yellow]"
         )
 
     return True

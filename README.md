@@ -74,7 +74,8 @@ Commands available in chat:
 - `/clear` - Clear conversation history
 - `/history` - Show conversation history
 - `/system` - Show/set system prompt
-- `/model` - Show current model
+- `/model` - Show/set current model or model for specific task
+- `/ask <model> <prompt>` - Send a prompt to a specific model without changing the default
 
 **File Operations:**
 - `/read <filepath>` - Read and display a file
