@@ -40,28 +40,57 @@ def run_setup_wizard() -> Config:
 
     # Model selection
     console.print()
-    console.print("[bold]Step 2: Model Configuration[/bold]")
+    console.print("[bold]Step 2: Function-Based Model Configuration[/bold]")
     console.print(
-        "[dim]Common options: openrouter/auto, gpt-4, gpt-3.5-turbo, claude-3-sonnet[/dim]"
+        "[dim]Madison uses 'functions' to organize different models for different tasks.[/dim]"
     )
+    console.print(
+        "[dim]For example, you might use gpt-4 for 'thinking' and gpt-3.5 for 'summarization'.[/dim]"
+    )
+    console.print(
+        "[dim]Common options: openrouter/auto, gpt-4, gpt-3.5-turbo, claude-3-sonnet, claude-opus[/dim]"
+    )
+
     default_model = Prompt.ask(
-        "Enter default model",
+        "Enter default model (used when no specific function is requested)",
         default="openrouter/auto",
     )
 
-    # Task-specific models
+    # Function-specific models
     models = {"default": default_model}
     console.print()
-    if Confirm.ask(
-        "Would you like to configure task-specific models (e.g., thinking)?",
-        default=False,
-    ):
-        thinking_model = Prompt.ask(
-            "Enter thinking model (or press Enter for same as default)",
-            default=default_model,
-        )
-        if thinking_model:
-            models["thinking"] = thinking_model
+    console.print("[dim]You can now register additional functions with specific models.[/dim]")
+    console.print("[dim]For example: 'thinking' for deep reasoning, 'planning' for strategy, etc.[/dim]")
+
+    # Add some common function suggestions
+    suggested_functions = ["thinking", "planning", "summarization", "analysis"]
+    for suggested_func in suggested_functions:
+        if Confirm.ask(
+            f"Configure a '{suggested_func}' function?",
+            default=suggested_func == "thinking",  # thinking is suggested by default
+        ):
+            func_model = Prompt.ask(
+                f"Enter model for '{suggested_func}' (or press Enter for same as default)",
+                default=default_model,
+            )
+            if func_model and func_model != default_model:
+                models[suggested_func] = func_model
+            elif func_model:
+                models[suggested_func] = func_model
+
+    # Allow adding custom functions
+    console.print()
+    while Confirm.ask("Add a custom function?", default=False):
+        custom_func = Prompt.ask("Function name (e.g., 'bork', 'analysis')")
+        if custom_func and custom_func not in models:
+            custom_model = Prompt.ask(
+                f"Enter model for '{custom_func}'",
+                default=default_model,
+            )
+            if custom_model:
+                models[custom_func] = custom_model
+        elif custom_func in models:
+            console.print(f"[yellow]Function '{custom_func}' already configured.[/yellow]")
 
     # System prompt
     console.print()
@@ -146,16 +175,17 @@ def run_setup_wizard() -> Config:
     # Summary
     console.print()
     models_summary = "\n".join(
-        f"  {task}: {model}" for task, model in sorted(config.models.items())
+        f"  [cyan]{func}[/cyan] → {model}" for func, model in sorted(config.models.items())
     )
     console.print(
         Panel(
             "[bold green]Setup Complete![/bold green]\n\n"
-            f"Models:\n{models_summary}\n"
+            f"Registered Functions:\n{models_summary}\n"
             f"Temperature: {config.temperature}\n"
             f"Timeout: {config.timeout}s\n"
             f"History Size: {config.history_size}\n\n"
-            "[dim]You can now run 'madison' to start chatting![/dim]",
+            "[dim]Try: /ask thinking 'What is 2+2?' to test![/dim]\n"
+            "[dim]Or: madison to start chatting[/dim]",
             expand=False,
         )
     )

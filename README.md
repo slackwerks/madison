@@ -74,8 +74,9 @@ Commands available in chat:
 - `/clear` - Clear conversation history
 - `/history` - Show conversation history
 - `/system` - Show/set system prompt
-- `/model` - Show/set current model or model for specific task
-- `/ask <model> <prompt>` - Send a prompt to a specific model without changing the default
+- `/model` - Show/set models registered for different functions
+- `/ask <function> <prompt>` - Send a prompt to a registered function (e.g., `/ask thinking "What is 2+2?"`)
+- `/ask model=<MODEL> <prompt>` - Send a prompt to a specific model directly
 
 **File Operations:**
 - `/read <filepath>` - Read and display a file
@@ -111,6 +112,59 @@ madison config set default_model "claude-3-sonnet"
 # Reset to defaults
 madison config reset
 ```
+
+## Function-Based Model Registration
+
+Madison uses a **function-based model system** to organize different models for different tasks. This allows you to register models for semantic functions like "thinking", "planning", "analysis", etc., and then use them with the `/ask` command.
+
+### Example Configuration
+
+In your `~/.madison/config.yaml`:
+
+```yaml
+api_key: "your-api-key"
+models:
+  default: openrouter/auto           # Used for regular chat
+  thinking: claude-opus              # Deep reasoning and analysis
+  planning: gpt-4-turbo              # Strategic planning
+  summarization: gpt-3.5-turbo       # Quick summaries (faster/cheaper)
+  bork: dolphin-mistral              # Custom function for your workflow
+```
+
+### Using Functions with `/ask`
+
+```bash
+# Use the 'thinking' function (runs claude-opus)
+/ask thinking "What are the implications of quantum computing?"
+
+# Use the 'planning' function (runs gpt-4-turbo)
+/ask planning "Create a project roadmap for 2025"
+
+# Use the 'summarization' function (runs gpt-3.5-turbo)
+/ask summarization "Condense this article into 3 bullet points"
+
+# Direct model specification (bypasses function registration)
+/ask model=gpt-4 "Quick question about syntax"
+```
+
+### Managing Functions
+
+```bash
+# Show all registered functions and their models
+/model
+
+# Register a new function (in chat)
+/model thinking claude-3.5-sonnet
+
+# Change default model (used for regular chat)
+/model default gpt-4
+```
+
+**Benefits:**
+- **Semantic clarity** - Commands express intent ("thinking", "planning") not implementation
+- **Easy experimentation** - Swap models without changing commands
+- **Cost optimization** - Use cheaper models for simple tasks, expensive ones for complex reasoning
+- **Future-proof** - Ready for agent integration where agents can override these functions
 
 ## Project Structure
 
