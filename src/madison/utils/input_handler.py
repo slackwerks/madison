@@ -43,11 +43,12 @@ class MadisonPrompt:
 
         self.session.key_bindings = bindings
 
-    async def prompt_async(self, prompt_text: str = "> ") -> Optional[str]:
+    async def prompt_async(self, prompt_text: str = "> ", show_commands: bool = True) -> Optional[str]:
         """Get input from user asynchronously.
 
         Args:
             prompt_text: The prompt text to display
+            show_commands: Whether to show command help bar
 
         Returns:
             str: User input, or None if interrupted by ESC
@@ -57,12 +58,23 @@ class MadisonPrompt:
         """
         try:
             self.interrupted = False
+
+            # Show command help bar if requested
+            if show_commands:
+                print()  # Blank line
+                print("─" * TERM_WIDTH)
+
             # Use patch_stdout to properly handle Rich console output
             with patch_stdout():
                 user_input = await self.session.prompt_async(prompt_text)
 
             if self.interrupted:
                 raise InterruptedError("User pressed ESC")
+
+            # Show bottom bar with commands
+            if show_commands:
+                print("─" * TERM_WIDTH)
+                print("[Commands] /read /write /exec /search /clear /history /save /load /sessions /model /system /quit /exit")
 
             return user_input.strip()
 

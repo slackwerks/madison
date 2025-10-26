@@ -137,7 +137,7 @@ async def _repl_loop(
             try:
                 # Get user input (can be interrupted with ESC)
                 try:
-                    user_input = prompt.prompt_sync()
+                    user_input = await prompt.prompt_async()
                 except InterruptedError as e:
                     if "EOF" in str(e):
                         # User pressed Ctrl+D - exit
