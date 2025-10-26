@@ -225,6 +225,15 @@ async def _handle_commands(
         session.clear()
         console.print("[green]Conversation cleared.[/green]")
 
+    elif command == "/retry":
+        if not session.last_user_prompt:
+            console.print("[yellow]No previous prompt to retry.[/yellow]")
+        else:
+            console.print(f"[dim]Retrying: {session.last_user_prompt[:100]}{'...' if len(session.last_user_prompt) > 100 else ''}[/dim]")
+            await _handle_chat(
+                session.last_user_prompt, session, client, model, config, file_ops, cancel_token
+            )
+
     elif command == "/history":
         history = session.get_history()
         if not history:
@@ -545,10 +554,23 @@ async def _handle_commands(
     else:
         console.print(f"[red]Unknown command: {command}[/red]")
         console.print(
-            "[yellow]Available commands: /read, /write, /exec, /search, /ask, /clear, /history, /model, /model-list, /system, /save, /load, /sessions, /quit, /exit[/yellow]"
+            "[yellow]Available commands: /read, /write, /exec, /search, /ask, /clear, /retry, /history, /model, /model-list, /system, /save, /load, /sessions, /quit, /exit[/yellow]"
         )
 
     return True
+
+
+def _is_retryable_error(error_msg: str) -> bool:
+    """Check if an error message indicates a retryable error.
+
+    Args:
+        error_msg: Error message from API
+
+    Returns:
+        bool: True if error is retryable (rate limit, service unavailable, etc.)
+    """
+    retryable_codes = ["429", "503", "504"]
+    return any(code in error_msg for code in retryable_codes)
 
 
 async def _handle_chat(
@@ -571,6 +593,9 @@ async def _handle_chat(
         file_ops: File operations
         cancel_token: Cancellation token
     """
+    # Store the prompt for /retry command
+    session.last_user_prompt = user_input
+
     # Add user message to session
     session.add_message("user", user_input)
 
@@ -604,7 +629,16 @@ async def _handle_chat(
 
     except Exception as e:
         logger.exception("Error getting chat response")
-        console.print(f"\n[red]Error:[/red] {e}")
+        error_msg = str(e)
+
+        # Check if this is a retryable error (rate limit, service unavailable)
+        if _is_retryable_error(error_msg):
+            console.print(f"\n[red]Transient Error (Rate Limit/Service Unavailable):[/red] {e}")
+            console.print("[yellow]The API is temporarily unavailable or rate-limited.[/yellow]")
+            console.print("[yellow]Use /retry to resubmit your prompt for another round of retries.[/yellow]")
+        else:
+            # Non-retryable error
+            console.print(f"\n[red]Error:[/red] {e}")
 
 
 @app.command()

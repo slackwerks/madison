@@ -26,6 +26,7 @@ class Session:
         ]
         self.created_at = datetime.now()
         self.updated_at = datetime.now()
+        self.last_user_prompt: Optional[str] = None  # For /retry command
 
     def add_message(self, role: str, content: str) -> None:
         """Add a message to the session.

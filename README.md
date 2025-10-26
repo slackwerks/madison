@@ -72,6 +72,7 @@ Commands available in chat:
 **Chat & Conversation:**
 - `/quit`, `/exit` - Exit the chat
 - `/clear` - Clear conversation history
+- `/retry` - Resubmit the last prompt (useful after rate limit errors)
 - `/history` - Show conversation history
 - `/system` - Show/set system prompt
 - `/model` - Show/set models registered for different functions

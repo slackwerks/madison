@@ -106,7 +106,7 @@ class MadisonPrompt:
             # Show bottom bar with commands
             if show_commands:
                 print("─" * TERM_WIDTH)
-                print("[Commands] /read /write /exec /search /ask /clear /history /save /load /sessions /model /model-list /system /quit /exit")
+                print("[Commands] /read /write /exec /search /ask /clear /retry /history /save /load /sessions /model /model-list /system /quit /exit")
 
             return user_input.strip()
 
@@ -153,7 +153,7 @@ class MadisonPrompt:
             # Show bottom bar with commands
             if show_commands:
                 print("─" * TERM_WIDTH)
-                print("[Commands] /read /write /exec /search /ask /clear /history /save /load /sessions /model /model-list /system /quit /exit")
+                print("[Commands] /read /write /exec /search /ask /clear /retry /history /save /load /sessions /model /model-list /system /quit /exit")
 
             return user_input.strip()
 
