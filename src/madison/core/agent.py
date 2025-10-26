@@ -78,11 +78,22 @@ class Agent:
         system_prompt = self._build_planning_prompt()
 
         try:
+            # Build messages with system context included in user message
+            # (OpenRouter API doesn't use separate system parameter)
+            messages = [
+                {
+                    "role": "user",
+                    "content": f"{system_prompt}\n\nUser request: {user_prompt}"
+                }
+            ]
+
             # Get the model's response about what actions to take
             response = ""
             async for chunk in self.client.chat_stream(
-                messages=[{"role": "user", "content": user_prompt}],
-                system=system_prompt,
+                messages=messages,
+                model=self.config.default_model,
+                temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens,
             ):
                 response += chunk
 
@@ -101,6 +112,7 @@ class Agent:
 
         except Exception as e:
             logger.error(f"Failed to generate plan: {e}")
+            logger.debug(f"Full error: {type(e).__name__}: {e}", exc_info=True)
             return None
 
     async def execute_plan(self, plan: Plan) -> str:
