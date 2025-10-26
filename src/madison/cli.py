@@ -24,6 +24,7 @@ from madison.exceptions import (
 from madison.tools.command_exec import CommandExecutor
 from madison.tools.file_ops import FileOperations
 from madison.tools.web_search import WebSearcher
+from madison.utils.cancellation import CancellationToken, start_esc_monitor, stop_esc_monitor
 
 # Setup logging
 logging.basicConfig(
@@ -132,16 +133,26 @@ async def _repl_loop(
                 if not user_input.strip():
                     continue
 
-                # Handle special commands
-                if await _handle_commands(
-                    user_input, session, file_ops, config, client, model, cmd_executor, searcher
-                ):
-                    continue
+                # Create cancellation token for this operation
+                cancel_token = CancellationToken()
 
-                # Regular chat
-                await _handle_chat(
-                    user_input, session, client, model, config, file_ops
-                )
+                try:
+                    # Start ESC monitor
+                    start_esc_monitor(cancel_token)
+
+                    # Handle special commands
+                    if await _handle_commands(
+                        user_input, session, file_ops, config, client, model, cmd_executor, searcher, cancel_token
+                    ):
+                        continue
+
+                    # Regular chat
+                    await _handle_chat(
+                        user_input, session, client, model, config, file_ops, cancel_token
+                    )
+                finally:
+                    # Stop ESC monitor
+                    stop_esc_monitor()
 
             except KeyboardInterrupt:
                 console.print("\n[yellow]Interrupted. Type '/quit' to exit.[/yellow]")
@@ -187,6 +198,7 @@ async def _handle_commands(
     model: str,
     cmd_executor: CommandExecutor,
     searcher: WebSearcher,
+    cancel_token: CancellationToken,
 ) -> bool:
     """Handle special commands.
 
@@ -199,6 +211,7 @@ async def _handle_commands(
         model: Current model
         cmd_executor: Command executor
         searcher: Web searcher
+        cancel_token: Cancellation token
 
     Returns:
         bool: Whether a command was handled
@@ -271,7 +284,18 @@ async def _handle_commands(
         else:
             try:
                 console.print(f"[dim]Executing:[/dim] {args}")
+
+                # Check if already cancelled
+                if cancel_token.is_cancelled:
+                    console.print("[yellow]Operation cancelled.[/yellow]")
+                    return True
+
                 stdout, stderr, returncode = await cmd_executor.execute(args)
+
+                # Check if cancelled during execution
+                if cancel_token.is_cancelled:
+                    console.print("[yellow]Operation cancelled.[/yellow]")
+                    return True
 
                 if stdout:
                     console.print("\n[bold cyan]Output:[/bold cyan]")
@@ -296,7 +320,19 @@ async def _handle_commands(
         else:
             try:
                 console.print(f"[dim]Searching for:[/dim] {args}")
+
+                # Check if already cancelled
+                if cancel_token.is_cancelled:
+                    console.print("[yellow]Operation cancelled.[/yellow]")
+                    return True
+
                 results = await searcher.search(args)
+
+                # Check if cancelled during search
+                if cancel_token.is_cancelled:
+                    console.print("[yellow]Operation cancelled.[/yellow]")
+                    return True
+
                 console.print(f"\n{results}")
 
                 # Add search results to session for context
@@ -320,6 +356,7 @@ async def _handle_chat(
     model: str,
     config: Config,
     file_ops: FileOperations,
+    cancel_token: CancellationToken,
 ):
     """Handle a chat message.
 
@@ -330,6 +367,7 @@ async def _handle_chat(
         model: Model to use
         config: Config
         file_ops: File operations
+        cancel_token: Cancellation token
     """
     # Add user message to session
     session.add_message("user", user_input)
@@ -345,6 +383,11 @@ async def _handle_chat(
             temperature=config.temperature,
             max_tokens=config.max_tokens,
         ):
+            # Check if cancelled
+            if cancel_token.is_cancelled:
+                console.print("\n[yellow]Response interrupted by user.[/yellow]")
+                break
+
             # Write token directly to the console file object
             console.file.write(token)
             console.file.flush()
@@ -352,8 +395,10 @@ async def _handle_chat(
 
         console.print()
 
-        # Add assistant response to session
-        session.add_message("assistant", response_text)
+        # Only add to session if not cancelled
+        if response_text and not cancel_token.is_cancelled:
+            # Add assistant response to session
+            session.add_message("assistant", response_text)
 
     except Exception as e:
         logger.exception("Error getting chat response")
