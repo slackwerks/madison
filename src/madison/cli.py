@@ -26,7 +26,8 @@ from madison.exceptions import (
 from madison.tools.command_exec import CommandExecutor
 from madison.tools.file_ops import FileOperations
 from madison.tools.web_search import WebSearcher
-from madison.utils.cancellation import CancellationToken, start_esc_monitor, stop_esc_monitor
+from madison.utils.cancellation import CancellationToken
+from madison.utils.input_handler import InterruptedError, MadisonPrompt
 from madison.utils.setup import run_setup_wizard
 
 # Setup logging
@@ -129,73 +130,47 @@ async def _repl_loop(
     searcher = WebSearcher(max_results=5)
     session_manager = SessionManager()
     history_manager = HistoryManager()
+    prompt = MadisonPrompt()
 
     async with OpenRouterClient(config.api_key, timeout=config.timeout) as client:
         while True:
             try:
-                # Get user input
-                user_input = await _get_user_input()
+                # Get user input (can be interrupted with ESC)
+                try:
+                    user_input = prompt.prompt_sync()
+                except InterruptedError as e:
+                    if "EOF" in str(e):
+                        # User pressed Ctrl+D - exit
+                        console.print("[yellow]Goodbye![/yellow]")
+                        sys.exit(0)
+                    # User pressed ESC - just continue to next prompt
+                    continue
 
-                if not user_input.strip():
+                if not user_input or not user_input.strip():
                     continue
 
                 # Create cancellation token for this operation
                 cancel_token = CancellationToken()
 
-                try:
-                    # Start ESC monitor
-                    start_esc_monitor(cancel_token)
+                # Add to history
+                history_manager.add_entry(user_input, "query")
 
-                    # Add to history
-                    history_manager.add_entry(user_input, "query")
+                # Handle special commands
+                if await _handle_commands(
+                    user_input, session, file_ops, config, client, model, cmd_executor, searcher, cancel_token, session_manager, history_manager
+                ):
+                    continue
 
-                    # Handle special commands
-                    if await _handle_commands(
-                        user_input, session, file_ops, config, client, model, cmd_executor, searcher, cancel_token, session_manager, history_manager
-                    ):
-                        continue
-
-                    # Regular chat
-                    await _handle_chat(
-                        user_input, session, client, model, config, file_ops, cancel_token
-                    )
-                finally:
-                    # Stop ESC monitor
-                    stop_esc_monitor()
+                # Regular chat
+                await _handle_chat(
+                    user_input, session, client, model, config, file_ops, cancel_token
+                )
 
             except KeyboardInterrupt:
                 console.print("\n[yellow]Interrupted. Type '/quit' or '/exit' to exit.[/yellow]")
             except Exception as e:
                 logger.exception("Error in REPL loop")
                 console.print(f"[red]Error:[/red] {e}")
-
-
-async def _get_user_input() -> str:
-    """Get user input asynchronously with a nice bar-based prompt.
-
-    Returns:
-        str: User input
-    """
-    from rich.text import Text
-
-    # Display top bar
-    console.print()
-    console.print("─" * console.width)
-
-    # Get input
-    loop = asyncio.get_event_loop()
-    user_input = await loop.run_in_executor(None, lambda: console.input("> ").strip())
-
-    # Display bottom bar with commands
-    console.print("─" * console.width)
-    console.print(
-        "[dim]Commands:[/dim] "
-        "[cyan]/read[/cyan] [cyan]/write[/cyan] [cyan]/exec[/cyan] [cyan]/search[/cyan] "
-        "[cyan]/clear[/cyan] [cyan]/history[/cyan] [cyan]/model[/cyan] [cyan]/system[/cyan] [cyan]/quit[/cyan] [cyan]/exit[/cyan]",
-        style="dim",
-    )
-
-    return user_input
 
 
 async def _handle_commands(
