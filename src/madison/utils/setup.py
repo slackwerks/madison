@@ -7,7 +7,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 
-from madison.core.config import Config
+from madison.core.config import Config, ProjectConfig
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -192,6 +192,47 @@ def run_setup_wizard() -> Config:
         except ValueError:
             console.print("[red]Please enter a valid number[/red]")
 
+    # Project scope and permissions
+    console.print()
+    console.print("[bold]Step 8: Project Scope[/bold]")
+    console.print("[dim]Madison uses project scope to restrict file and command operations.[/dim]")
+    console.print("[dim]Each project has its own ./.madison/config.yaml with permission rules.[/dim]")
+    console.print()
+
+    configure_project = Confirm.ask(
+        "Configure project-level permissions now?",
+        default=False,
+    )
+
+    project_config = None
+    if configure_project:
+        console.print()
+        console.print("[dim]By default, all file and command operations outside the project")
+        console.print("directory are restricted. You will be prompted to approve access.[/dim]")
+
+        allow_parent = Confirm.ask(
+            "Allow reading from parent directories?",
+            default=False,
+        )
+
+        # Create project config with optional parent directory access
+        project_config = ProjectConfig()
+        if allow_parent:
+            # Add parent directory to allowed paths
+            project_config.permissions.file_operations["always_allow"] = [".", ".."]
+            project_config.permissions.command_execution["allowed_paths"] = [".", ".."]
+
+        # Try to save project config
+        try:
+            if project_config.save():
+                console.print("[green]✓ Project configuration saved to ./.madison/config.yaml[/green]")
+            else:
+                console.print("[yellow]✗ Could not create ./.madison/config.yaml (permission denied)")
+                console.print("[dim]You will be prompted for permissions when needed[/dim]")
+        except Exception as e:
+            console.print(f"[yellow]Could not save project config: {e}[/yellow]")
+            console.print("[dim]You will be prompted for permissions when needed[/dim]")
+
     # Create config
     config = Config(
         api_key=api_key,
@@ -224,6 +265,15 @@ def run_setup_wizard() -> Config:
     models_summary = "\n".join(
         f"  [cyan]{func}[/cyan] → {model}" for func, model in sorted(config.models.items())
     )
+
+    project_scope_info = (
+        "Project Scope: Enabled\n"
+        "  Location: ./.madison/config.yaml\n"
+        "  Default: Restrict to project directory\n"
+    )
+    if configure_project and allow_parent:
+        project_scope_info += "  Parent access: Allowed\n"
+
     console.print(
         Panel(
             "[bold green]Setup Complete![/bold green]\n\n"
@@ -232,6 +282,7 @@ def run_setup_wizard() -> Config:
             f"Timeout: {config.timeout}s\n"
             f"History Size: {config.history_size}\n"
             f"Retry Config: max={config.max_retries}, delay={config.retry_initial_delay}s, backoff={config.retry_backoff_factor}x\n\n"
+            f"{project_scope_info}\n"
             "[dim]Try: /ask thinking 'What is 2+2?' to test![/dim]\n"
             "[dim]Or: madison to start chatting[/dim]",
             expand=False,

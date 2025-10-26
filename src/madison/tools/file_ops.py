@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
+from madison.core.permissions import PermissionManager
 from madison.exceptions import FileOperationError
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,7 @@ class FileOperations:
             base_dir: Base directory for file operations (defaults to current working directory)
         """
         self.base_dir = base_dir or Path.cwd()
+        self.permission_manager = PermissionManager()
 
     def _resolve_path(self, file_path: str) -> Path:
         """Resolve and validate file path.
@@ -67,9 +69,13 @@ class FileOperations:
             str: File contents
 
         Raises:
-            FileOperationError: If read fails
+            FileOperationError: If read fails or permission denied
         """
         try:
+            # Check permissions
+            if not self.permission_manager.can_read_file(file_path, prompt_user=True):
+                raise FileOperationError(f"Permission denied: {file_path}")
+
             target = self._resolve_path(file_path)
 
             if not target.exists():
@@ -104,9 +110,13 @@ class FileOperations:
             create_dirs: Whether to create parent directories (default: True)
 
         Raises:
-            FileOperationError: If write fails
+            FileOperationError: If write fails or permission denied
         """
         try:
+            # Check permissions
+            if not self.permission_manager.can_write_file(file_path, prompt_user=True):
+                raise FileOperationError(f"Permission denied: {file_path}")
+
             target = self._resolve_path(file_path)
 
             if create_dirs:
@@ -135,9 +145,13 @@ class FileOperations:
             create_dirs: Whether to create parent directories (default: True)
 
         Raises:
-            FileOperationError: If append fails
+            FileOperationError: If append fails or permission denied
         """
         try:
+            # Check permissions
+            if not self.permission_manager.can_write_file(file_path, prompt_user=True):
+                raise FileOperationError(f"Permission denied: {file_path}")
+
             target = self._resolve_path(file_path)
 
             if create_dirs:
@@ -176,9 +190,13 @@ class FileOperations:
             file_path: Path to file
 
         Raises:
-            FileOperationError: If delete fails
+            FileOperationError: If delete fails or permission denied
         """
         try:
+            # Check permissions
+            if not self.permission_manager.can_write_file(file_path, prompt_user=True):
+                raise FileOperationError(f"Permission denied: {file_path}")
+
             target = self._resolve_path(file_path)
 
             if not target.exists():

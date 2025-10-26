@@ -169,6 +169,40 @@ models:
 - **Cost optimization** - Use cheaper models for simple tasks, expensive ones for complex reasoning
 - **Future-proof** - Ready for agent integration where agents can override these functions
 
+## Project Scope and Security
+
+Madison uses a **project scope** concept to restrict file and command operations by default:
+
+- **Project Directory**: The directory where Madison is launched becomes the project scope
+- **Scope Location**: `./.madison/config.yaml` (created in the launch directory)
+- **Default Behavior**: All file and command operations are restricted by default
+- **Whitelist Model**: Users must explicitly allow operations outside the project directory
+- **User Prompting**: When an operation is denied, Madison prompts the user with three options:
+  1. **Yes, this once** - Allow the operation for this request only
+  2. **Yes, always** - Allow and save to `./.madison/config.yaml` for future requests
+  3. **No** - Deny the operation
+
+### Permission Rules
+
+File and command operations are controlled by permission rules in `./.madison/config.yaml`:
+
+```yaml
+permissions:
+  file_operations:
+    always_allow:
+      - .          # Current directory (always allowed)
+      - ./src      # Example: allow src directory
+  command_execution:
+    allowed_paths:
+      - .          # Current directory (always allowed)
+      - ./scripts  # Example: allow scripts directory
+```
+
+### Project vs User Configuration
+
+- **User Config** (`~/.madison/config.yaml`): Global settings (API key, models, temperature, etc.)
+- **Project Config** (`./.madison/config.yaml`): Per-project security rules (permissions, file/command restrictions)
+
 ## Project Structure
 
 ```
@@ -180,11 +214,12 @@ madison/
 │       │   └── models.py         # Data models
 │       ├── core/
 │       │   ├── config.py         # Configuration management
+│       │   ├── permissions.py    # Permission checking and prompting
 │       │   ├── session.py        # Conversation session
 │       │   └── context.py        # Context management (future)
 │       ├── tools/
-│       │   ├── file_ops.py       # File operations
-│       │   ├── command_exec.py   # Command execution
+│       │   ├── file_ops.py       # File operations (with permission checks)
+│       │   ├── command_exec.py   # Command execution (with permission checks)
 │       │   └── web_search.py     # Web search
 │       ├── cli.py                # Main CLI interface
 │       └── exceptions.py         # Custom exceptions

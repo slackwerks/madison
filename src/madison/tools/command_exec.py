@@ -5,6 +5,7 @@ import logging
 import subprocess
 from typing import Tuple
 
+from madison.core.permissions import PermissionManager
 from madison.exceptions import CommandExecutionError
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,7 @@ class CommandExecutor:
             timeout: Command timeout in seconds
         """
         self.timeout = timeout
+        self.permission_manager = PermissionManager()
 
     async def execute(self, command: str) -> Tuple[str, str, int]:
         """Execute a shell command asynchronously.
@@ -34,9 +36,13 @@ class CommandExecutor:
             Tuple[str, str, int]: (stdout, stderr, returncode)
 
         Raises:
-            CommandExecutionError: If execution fails
+            CommandExecutionError: If execution fails or permission denied
         """
         try:
+            # Check permissions
+            if not self.permission_manager.can_execute_command(command, prompt_user=True):
+                raise CommandExecutionError(f"Permission denied: command execution not allowed")
+
             process = await asyncio.create_subprocess_shell(
                 command,
                 stdout=asyncio.subprocess.PIPE,

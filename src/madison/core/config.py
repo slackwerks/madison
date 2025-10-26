@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import yaml
 from pydantic import BaseModel, Field, validator
@@ -132,3 +132,107 @@ class Config(BaseModel):
     def to_dict(self) -> dict:
         """Convert config to dictionary."""
         return self.dict()
+
+
+class ProjectPermissions(BaseModel):
+    """Project-specific permissions configuration."""
+
+    file_operations: Dict[str, List[str]] = Field(
+        default_factory=lambda: {"always_allow": ["."]},
+        description="File operation permissions (always_allow paths)"
+    )
+    command_execution: Dict[str, List[str]] = Field(
+        default_factory=lambda: {"allowed_paths": ["."]},
+        description="Command execution permissions (allowed_paths)"
+    )
+
+    class Config:
+        """Pydantic config."""
+        validate_assignment = True
+
+
+class ProjectConfig(BaseModel):
+    """Project-scoped configuration stored in ./.madison/config.yaml"""
+
+    permissions: ProjectPermissions = Field(
+        default_factory=ProjectPermissions,
+        description="Project-specific permissions"
+    )
+
+    class Config:
+        """Pydantic config."""
+        validate_assignment = True
+
+    @staticmethod
+    def project_dir() -> Path:
+        """Get the project directory (.madison folder in current working directory).
+
+        Returns:
+            Path: Path to ./.madison directory
+
+        Raises:
+            ConfigError: If directory cannot be created
+        """
+        project_dir = Path.cwd() / ".madison"
+        try:
+            project_dir.mkdir(parents=True, exist_ok=True)
+            return project_dir
+        except Exception as e:
+            # Don't raise error here - we'll retry on permission checks
+            pass
+        return project_dir
+
+    @staticmethod
+    def project_config_file() -> Path:
+        """Get the project config file path.
+
+        Returns:
+            Path: Path to ./.madison/config.yaml
+        """
+        return ProjectConfig.project_dir() / "config.yaml"
+
+    @classmethod
+    def load(cls) -> "ProjectConfig":
+        """Load project configuration from ./.madison/config.yaml
+
+        Returns:
+            ProjectConfig: Loaded configuration or defaults if file doesn't exist
+
+        Raises:
+            ConfigError: If config file exists but cannot be parsed
+        """
+        config_file = cls.project_config_file()
+
+        if config_file.exists():
+            try:
+                with open(config_file, "r") as f:
+                    file_data = yaml.safe_load(f) or {}
+                    return cls(**file_data)
+            except Exception as e:
+                raise ConfigError(f"Failed to load project config {config_file}: {e}")
+
+        # Return defaults if file doesn't exist
+        return cls()
+
+    def save(self) -> bool:
+        """Save project configuration to ./.madison/config.yaml
+
+        Returns:
+            bool: True if save succeeded, False if directory/file cannot be created
+
+        Raises:
+            ConfigError: If write operation fails
+        """
+        try:
+            config_file = self.project_config_file()
+            config_file.parent.mkdir(parents=True, exist_ok=True)
+
+            data = self.dict()
+            with open(config_file, "w") as f:
+                yaml.dump(data, f, default_flow_style=False)
+            return True
+        except PermissionError:
+            # Directory/file not writable - will retry later
+            return False
+        except Exception as e:
+            raise ConfigError(f"Failed to save project config: {e}")
