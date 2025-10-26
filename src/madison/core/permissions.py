@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 from rich.console import Console
 from rich.panel import Panel
@@ -12,6 +12,11 @@ from madison.core.config import ProjectConfig
 
 logger = logging.getLogger(__name__)
 console = Console()
+
+# Avoid circular imports
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from madison.core.plan import Plan, PlanAction
 
 
 class PermissionManager:
@@ -276,6 +281,80 @@ class PermissionManager:
             logger.info(f"Permission denied for {operation}: {path}")
             console.print("[red]Operation denied.[/red]")
             return False
+
+    def check_plan_permissions(self, plan: "Plan") -> Tuple[bool, List["PlanAction"]]:
+        """Check if all actions in a plan are allowed.
+
+        Args:
+            plan: The plan to check
+
+        Returns:
+            Tuple of (all_allowed: bool, denied_actions: List[PlanAction])
+        """
+        denied_actions = []
+
+        for action in plan.actions:
+            allowed = False
+
+            if action.type == "exec":
+                allowed = self.can_execute_command(action.command, prompt_user=False)
+            elif action.type == "read":
+                allowed = self.can_read_file(action.file_path, prompt_user=False)
+            elif action.type == "write":
+                allowed = self.can_write_file(action.file_path, prompt_user=False)
+            # Search operations don't need permission checks
+
+            if not allowed and action.type != "search":
+                denied_actions.append(action)
+
+        return len(denied_actions) == 0, denied_actions
+
+    def prompt_for_plan(self, plan: "Plan", denied_actions: List["PlanAction"]) -> Tuple[bool, Set[int]]:
+        """Prompt user for permission to execute denied actions in a plan.
+
+        Args:
+            plan: The plan being executed
+            denied_actions: Actions that are denied
+
+        Returns:
+            Tuple of (proceed: bool, approved_action_indices: Set[int])
+            where approved_action_indices contains indices of actions to allow once
+        """
+        # Display the plan
+        console.print()
+        console.print(Panel(plan.summary(), title="Execution Plan", expand=False))
+
+        console.print()
+        console.print(f"[yellow]⚠ {len(denied_actions)} action(s) require approval[/yellow]")
+        console.print()
+
+        # List denied actions
+        for i, action in enumerate(denied_actions, 1):
+            console.print(f"  {i}. {action.description}")
+
+        console.print()
+        choice = Prompt.ask(
+            "How would you like to proceed?",
+            choices=["1", "2", "3"],
+            default="3",
+        )
+
+        if choice == "1":
+            # Approve all denied actions once
+            return True, set(plan.actions.index(action) for action in denied_actions if action in plan.actions)
+        elif choice == "2":
+            # Add all to whitelist and approve
+            for action in denied_actions:
+                if action.type == "exec":
+                    self.prompt_for_permission(action.command, "command_exec")
+                elif action.type in ("read", "write"):
+                    op_type = "file_read" if action.type == "read" else "file_write"
+                    self.prompt_for_permission(action.file_path, op_type)
+            return True, set(plan.actions.index(action) for action in denied_actions if action in plan.actions)
+        else:
+            # Deny
+            console.print("[red]Plan execution cancelled.[/red]")
+            return False, set()
 
     def reload_config(self) -> None:
         """Reload project configuration from disk.

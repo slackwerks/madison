@@ -13,6 +13,7 @@ from rich.syntax import Syntax
 
 from madison.api.client import OpenRouterClient
 from madison.api.models import Message
+from madison.core.agent import Agent
 from madison.core.config import Config
 from madison.core.history import HistoryManager
 from madison.core.session import Session
@@ -139,6 +140,8 @@ async def _repl_loop(
         retry_initial_delay=config.retry_initial_delay,
         retry_backoff_factor=config.retry_backoff_factor,
     ) as client:
+        # Initialize agent for intent processing
+        agent = Agent(config, client)
         while True:
             try:
                 # Get user input (can be interrupted with ESC)
@@ -163,13 +166,13 @@ async def _repl_loop(
 
                 # Handle special commands
                 if await _handle_commands(
-                    user_input, session, file_ops, config, client, model, cmd_executor, searcher, cancel_token, session_manager, history_manager
+                    user_input, session, file_ops, config, client, model, cmd_executor, searcher, cancel_token, session_manager, history_manager, agent
                 ):
                     continue
 
-                # Regular chat
+                # Regular chat (with agent intent processing)
                 await _handle_chat(
-                    user_input, session, client, model, config, file_ops, cancel_token
+                    user_input, session, client, model, config, file_ops, cancel_token, agent
                 )
 
             except KeyboardInterrupt:
@@ -191,6 +194,7 @@ async def _handle_commands(
     cancel_token: CancellationToken,
     session_manager: SessionManager,
     history_manager: HistoryManager,
+    agent: Agent,
 ) -> bool:
     """Handle special commands.
 
@@ -231,7 +235,7 @@ async def _handle_commands(
         else:
             console.print(f"[dim]Retrying: {session.last_user_prompt[:100]}{'...' if len(session.last_user_prompt) > 100 else ''}[/dim]")
             await _handle_chat(
-                session.last_user_prompt, session, client, model, config, file_ops, cancel_token
+                session.last_user_prompt, session, client, model, config, file_ops, cancel_token, agent
             )
 
     elif command == "/history":
@@ -581,6 +585,7 @@ async def _handle_chat(
     config: Config,
     file_ops: FileOperations,
     cancel_token: CancellationToken,
+    agent: Agent,
 ):
     """Handle a chat message.
 
@@ -592,9 +597,24 @@ async def _handle_chat(
         config: Config
         file_ops: File operations
         cancel_token: Cancellation token
+        agent: Agent for intent processing
     """
     # Store the prompt for /retry command
     session.last_user_prompt = user_input
+
+    # Try to process as agent intent first
+    try:
+        intent_handled, intent_result = await agent.process_intent(user_input)
+        if intent_handled and intent_result:
+            # Agent found and executed actions
+            console.print(f"\n[cyan]Agent Execution Result:[/cyan]\n{intent_result}")
+            # Add the result to conversation context
+            session.add_message("user", user_input)
+            session.add_message("assistant", f"Executed plan:\n{intent_result}")
+            return
+    except Exception as e:
+        logger.debug(f"Agent processing failed (continuing with chat): {e}")
+        # If agent fails, continue with regular chat
 
     # Add user message to session
     session.add_message("user", user_input)
