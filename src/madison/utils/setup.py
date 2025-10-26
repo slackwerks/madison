@@ -40,7 +40,7 @@ def run_setup_wizard() -> Config:
 
     # Model selection
     console.print()
-    console.print("[bold]Step 2: Default Model[/bold]")
+    console.print("[bold]Step 2: Model Configuration[/bold]")
     console.print(
         "[dim]Common options: openrouter/auto, gpt-4, gpt-3.5-turbo, claude-3-sonnet[/dim]"
     )
@@ -48,6 +48,20 @@ def run_setup_wizard() -> Config:
         "Enter default model",
         default="openrouter/auto",
     )
+
+    # Task-specific models
+    models = {"default": default_model}
+    console.print()
+    if Confirm.ask(
+        "Would you like to configure task-specific models (e.g., thinking)?",
+        default=False,
+    ):
+        thinking_model = Prompt.ask(
+            "Enter thinking model (or press Enter for same as default)",
+            default=default_model,
+        )
+        if thinking_model:
+            models["thinking"] = thinking_model
 
     # System prompt
     console.print()
@@ -109,6 +123,7 @@ def run_setup_wizard() -> Config:
     config = Config(
         api_key=api_key,
         default_model=default_model,
+        models=models,
         system_prompt=system_prompt,
         temperature=temperature,
         timeout=timeout,
@@ -130,10 +145,13 @@ def run_setup_wizard() -> Config:
 
     # Summary
     console.print()
+    models_summary = "\n".join(
+        f"  {task}: {model}" for task, model in sorted(config.models.items())
+    )
     console.print(
         Panel(
             "[bold green]Setup Complete![/bold green]\n\n"
-            f"Model: {config.default_model}\n"
+            f"Models:\n{models_summary}\n"
             f"Temperature: {config.temperature}\n"
             f"Timeout: {config.timeout}s\n"
             f"History Size: {config.history_size}\n\n"

@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 import yaml
 from pydantic import BaseModel, Field, validator
@@ -16,6 +16,10 @@ class Config(BaseModel):
     api_key: str = Field(..., description="OpenRouter API key")
     default_model: str = Field(
         "openrouter/auto", description="Default OpenRouter model to use"
+    )
+    models: Dict[str, str] = Field(
+        default_factory=lambda: {"default": "openrouter/auto", "thinking": "openrouter/auto"},
+        description="Models for different task types",
     )
     system_prompt: str = Field(
         default="You are a helpful assistant.",
@@ -89,6 +93,29 @@ class Config(BaseModel):
             return cls(**config_data)
         except Exception as e:
             raise ConfigError(f"Failed to parse configuration: {e}")
+
+    def get_model(self, task_type: str = "default") -> str:
+        """Get model for a specific task type.
+
+        Args:
+            task_type: Type of task (default, thinking, etc.)
+
+        Returns:
+            str: Model name for the task type
+        """
+        return self.models.get(task_type, self.default_model)
+
+    def set_model(self, model: str, task_type: str = "default") -> None:
+        """Set model for a specific task type.
+
+        Args:
+            model: Model name to set
+            task_type: Type of task (default, thinking, etc.)
+        """
+        self.models[task_type] = model
+        # Also update default_model if setting default task type
+        if task_type == "default":
+            self.default_model = model
 
     def save(self) -> None:
         """Save configuration to file."""

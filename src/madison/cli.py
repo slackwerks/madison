@@ -254,10 +254,35 @@ async def _handle_commands(
 
     elif command == "/model":
         if not args:
-            console.print(f"[cyan]Current model:[/cyan] {model}")
+            # Show all configured models
+            console.print("\n[bold]Configured Models:[/bold]")
+            for task_type, model_name in sorted(config.models.items()):
+                console.print(f"  [cyan]{task_type}:[/cyan] {model_name}")
+            console.print(f"\n[cyan]Currently using:[/cyan] {model}")
         else:
-            # TODO: Implement model switching
-            console.print("[yellow]Model switching not yet implemented.[/yellow]")
+            # Parse model setting command: /model <task_type> <model_name>
+            parts = args.split(maxsplit=1)
+            if len(parts) == 2:
+                task_type, new_model = parts
+                config.set_model(new_model, task_type)
+                config.save()
+                console.print(f"[green]✓ Set {task_type} model to:[/green] {new_model}")
+                history_manager.add_entry(f"Set {task_type} model to {new_model}", "command")
+            else:
+                # Single arg could be just model name (set default) or invalid
+                if " " not in args:
+                    # Assume setting default model
+                    config.set_model(args, "default")
+                    config.save()
+                    console.print(f"[green]✓ Set default model to:[/green] {args}")
+                    history_manager.add_entry(f"Set default model to {args}", "command")
+                else:
+                    console.print("[red]Usage: /model [task_type] [model_name][/red]")
+                    console.print("[dim]Examples:[/dim]")
+                    console.print("  /model                          # Show all models")
+                    console.print("  /model gpt-4                    # Set default model")
+                    console.print("  /model default gpt-4            # Set default model")
+                    console.print("  /model thinking claude-opus     # Set thinking model")
 
     elif command == "/system":
         if not args:
