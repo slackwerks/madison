@@ -6,9 +6,15 @@ A pure Python CLI application for interacting with OpenRouter models, similar to
 
 - **Interactive REPL chat** with streaming responses
 - **Model selection** - Choose from available OpenRouter models
-- **File operations** - Read and write files with `@read` and `@write` commands
+- **File operations** - Read and write files with `/read` and `/write` commands
+- **Command execution** - Run shell commands with `/exec`
+- **Web search** - Search the web with `/search`
+- **Session persistence** - Save and resume conversations with `/save` and `/load`
+- **Command history** - Full history tracking and retrieval
+- **ESC key support** - Cancel input cleanly without breaking TTY
+- **Arrow key history** - Navigate through command history with ↑/↓
 - **Conversation history** - Maintain context across multiple messages
-- **Configuration management** - Environment variables or YAML config files
+- **Configuration management** - Interactive setup wizard or YAML config files
 - **Async-first design** - Fast streaming responses using asyncio and httpx
 
 ## Installation
@@ -84,7 +90,10 @@ Commands available in chat:
 - `/sessions` - List all saved sessions
 
 **Keyboard shortcuts:**
+- `ESC` - Cancel input/exit prompt without submitting
 - `Ctrl+C` - Interrupt/cancel the current operation (chat response, command execution, or search)
+- `Ctrl+D` - Exit the application (EOF)
+- Arrow keys - Navigate through input history (powered by prompt_toolkit)
 
 ### Manage Configuration
 
