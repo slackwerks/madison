@@ -132,7 +132,13 @@ async def _repl_loop(
     history_manager = HistoryManager()
     prompt = MadisonPrompt()
 
-    async with OpenRouterClient(config.api_key, timeout=config.timeout) as client:
+    async with OpenRouterClient(
+        config.api_key,
+        timeout=config.timeout,
+        max_retries=config.max_retries,
+        retry_initial_delay=config.retry_initial_delay,
+        retry_backoff_factor=config.retry_backoff_factor,
+    ) as client:
         while True:
             try:
                 # Get user input (can be interrupted with ESC)

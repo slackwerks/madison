@@ -29,6 +29,9 @@ class Config(BaseModel):
     max_tokens: Optional[int] = Field(default=None, description="Max tokens per response")
     timeout: int = Field(default=30, ge=1, description="Request timeout in seconds")
     history_size: int = Field(default=50, ge=1, description="Conversation history size")
+    max_retries: int = Field(default=3, ge=0, description="Maximum number of retries for failed requests")
+    retry_initial_delay: float = Field(default=1.0, ge=0.1, description="Initial delay in seconds before first retry")
+    retry_backoff_factor: float = Field(default=2.0, ge=1.0, description="Multiply delay by this factor after each retry")
 
     class Config:
         """Pydantic config."""

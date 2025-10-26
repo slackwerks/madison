@@ -148,6 +148,50 @@ def run_setup_wizard() -> Config:
         except ValueError:
             console.print("[red]Please enter a valid number[/red]")
 
+    # Retry configuration
+    console.print()
+    console.print("[bold]Step 7: Retry Configuration[/bold]")
+    console.print("[dim]For handling rate limits and temporary API errors[/dim]")
+
+    while True:
+        try:
+            max_retries_str = Prompt.ask(
+                "Max retries on transient errors (429, 503, 504)",
+                default="3"
+            )
+            max_retries = int(max_retries_str)
+            if max_retries < 0:
+                console.print("[red]Max retries must be >= 0[/red]")
+                continue
+            break
+        except ValueError:
+            console.print("[red]Please enter a valid number[/red]")
+
+    while True:
+        try:
+            delay_str = Prompt.ask("Initial retry delay in seconds", default="1.0")
+            retry_initial_delay = float(delay_str)
+            if retry_initial_delay < 0.1:
+                console.print("[red]Initial delay must be >= 0.1 seconds[/red]")
+                continue
+            break
+        except ValueError:
+            console.print("[red]Please enter a valid number[/red]")
+
+    while True:
+        try:
+            backoff_str = Prompt.ask(
+                "Retry backoff factor (delay multiplier per attempt)",
+                default="2.0"
+            )
+            retry_backoff_factor = float(backoff_str)
+            if retry_backoff_factor < 1.0:
+                console.print("[red]Backoff factor must be >= 1.0[/red]")
+                continue
+            break
+        except ValueError:
+            console.print("[red]Please enter a valid number[/red]")
+
     # Create config
     config = Config(
         api_key=api_key,
@@ -157,6 +201,9 @@ def run_setup_wizard() -> Config:
         temperature=temperature,
         timeout=timeout,
         history_size=history_size,
+        max_retries=max_retries,
+        retry_initial_delay=retry_initial_delay,
+        retry_backoff_factor=retry_backoff_factor,
     )
 
     # Save config
@@ -183,7 +230,8 @@ def run_setup_wizard() -> Config:
             f"Registered Functions:\n{models_summary}\n"
             f"Temperature: {config.temperature}\n"
             f"Timeout: {config.timeout}s\n"
-            f"History Size: {config.history_size}\n\n"
+            f"History Size: {config.history_size}\n"
+            f"Retry Config: max={config.max_retries}, delay={config.retry_initial_delay}s, backoff={config.retry_backoff_factor}x\n\n"
             "[dim]Try: /ask thinking 'What is 2+2?' to test![/dim]\n"
             "[dim]Or: madison to start chatting[/dim]",
             expand=False,
