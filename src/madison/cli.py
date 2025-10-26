@@ -115,7 +115,7 @@ async def _repl_loop(
             f"Model: {model}\n\n"
             f"Commands: [cyan]/read[/cyan], [cyan]/write[/cyan], [cyan]/exec[/cyan], "
             f"[cyan]/search[/cyan], [cyan]/clear[/cyan], [cyan]/history[/cyan], "
-            f"[cyan]/model[/cyan], [cyan]/quit[/cyan]",
+            f"[cyan]/model[/cyan], [cyan]/quit[/cyan] ([cyan]/exit[/cyan])",
             expand=False,
         )
     )
@@ -155,7 +155,7 @@ async def _repl_loop(
                     stop_esc_monitor()
 
             except KeyboardInterrupt:
-                console.print("\n[yellow]Interrupted. Type '/quit' to exit.[/yellow]")
+                console.print("\n[yellow]Interrupted. Type '/quit' or '/exit' to exit.[/yellow]")
             except Exception as e:
                 logger.exception("Error in REPL loop")
                 console.print(f"[red]Error:[/red] {e}")
@@ -182,7 +182,7 @@ async def _get_user_input() -> str:
     console.print(
         "[dim]Commands:[/dim] "
         "[cyan]/read[/cyan] [cyan]/write[/cyan] [cyan]/exec[/cyan] [cyan]/search[/cyan] "
-        "[cyan]/clear[/cyan] [cyan]/history[/cyan] [cyan]/model[/cyan] [cyan]/system[/cyan] [cyan]/quit[/cyan]",
+        "[cyan]/clear[/cyan] [cyan]/history[/cyan] [cyan]/model[/cyan] [cyan]/system[/cyan] [cyan]/quit[/cyan] [cyan]/exit[/cyan]",
         style="dim",
     )
 
@@ -223,7 +223,7 @@ async def _handle_commands(
     command = parts[0].lower()
     args = parts[1] if len(parts) > 1 else ""
 
-    if command == "/quit":
+    if command in ("/quit", "/exit"):
         console.print("[yellow]Goodbye![/yellow]")
         sys.exit(0)
 
@@ -343,7 +343,7 @@ async def _handle_commands(
     else:
         console.print(f"[red]Unknown command: {command}[/red]")
         console.print(
-            "[yellow]Available commands: /read, /write, /exec, /search, /clear, /history, /model, /system, /quit[/yellow]"
+            "[yellow]Available commands: /read, /write, /exec, /search, /clear, /history, /model, /system, /quit, /exit[/yellow]"
         )
 
     return True

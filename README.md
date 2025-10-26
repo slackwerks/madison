@@ -70,7 +70,7 @@ Commands available in chat:
 - `/history` - Show conversation history
 - `/model` - Show current model
 - `/system` - Show/set system prompt
-- `/quit` - Exit the chat
+- `/quit`, `/exit` - Exit the chat
 
 **Keyboard shortcuts:**
 - `ESC` - Cancel the current operation (chat response, command execution, or search)
