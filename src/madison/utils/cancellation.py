@@ -67,44 +67,14 @@ class ESCKeyMonitor:
         self._running = False
 
     def _monitor_esc(self) -> None:
-        """Monitor for ESC key in a background thread."""
-        try:
-            import tty
-            import termios
+        """Monitor for ESC key in a background thread.
 
-            # Only works on Unix-like systems with TTY
-            if not sys.stdin.isatty():
-                logger.debug("Not a TTY, ESC monitoring disabled")
-                return
-
-            # Save terminal settings
-            fd = sys.stdin.fileno()
-            old_settings = termios.tcgetattr(fd)
-
-            try:
-                # Set raw mode
-                tty.setraw(fd)
-
-                while self._running:
-                    try:
-                        ch = sys.stdin.read(1)
-                        if ch == "\x1b":  # ESC character
-                            logger.debug("ESC key pressed")
-                            if self._token:
-                                self._token.cancel()
-                            logger.info("Operation cancelled by user (ESC)")
-                    except Exception as e:
-                        logger.debug(f"Error reading input: {e}")
-                        break
-            finally:
-                # Restore terminal settings
-                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-
-        except ImportError:
-            # tty/termios not available on Windows
-            logger.debug("ESC monitoring not available on this platform")
-        except Exception as e:
-            logger.debug(f"Error in ESC monitor: {e}")
+        NOTE: ESC monitoring has been disabled because it interferes with
+        terminal input handling (breaks arrow keys, leaves TTY in bad state).
+        Use Ctrl+C for interruption instead.
+        """
+        # ESC monitoring disabled - use Ctrl+C instead
+        logger.debug("ESC monitoring disabled - use Ctrl+C to interrupt")
 
 
 # Global ESC monitor instance

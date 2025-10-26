@@ -104,11 +104,17 @@ class OpenRouterClient:
         except httpx.HTTPStatusError as e:
             error_msg = f"OpenRouter API error: {e.status_code}"
             try:
-                error_data = e.response.json()
+                response_text = e.response.text
+                logger.error(f"Response body: {response_text}")
+                error_data = json.loads(response_text)
                 if "error" in error_data:
-                    error_msg += f" - {error_data['error'].get('message', 'Unknown error')}"
-            except Exception:
-                pass
+                    error_details = error_data['error']
+                    if isinstance(error_details, dict):
+                        error_msg += f" - {error_details.get('message', 'Unknown error')}"
+                    else:
+                        error_msg += f" - {error_details}"
+            except Exception as ex:
+                logger.debug(f"Failed to parse error response: {ex}")
             logger.error(error_msg)
             raise APIError(error_msg) from e
         except Exception as e:
@@ -155,11 +161,20 @@ class OpenRouterClient:
                 if response.status_code != 200:
                     error_msg = f"OpenRouter API error: {response.status_code}"
                     try:
-                        error_data = response.json()
-                        if "error" in error_data:
-                            error_msg += f" - {error_data['error'].get('message', 'Unknown error')}"
-                    except Exception:
-                        pass
+                        response_text = await response.aread()
+                        logger.error(f"Response body: {response_text}")
+                        try:
+                            error_data = json.loads(response_text)
+                            if "error" in error_data:
+                                error_details = error_data['error']
+                                if isinstance(error_details, dict):
+                                    error_msg += f" - {error_details.get('message', 'Unknown error')}"
+                                else:
+                                    error_msg += f" - {error_details}"
+                        except json.JSONDecodeError:
+                            error_msg += f" - {response_text.decode('utf-8', errors='ignore')}"
+                    except Exception as e:
+                        logger.error(f"Failed to read error response: {e}")
                     logger.error(error_msg)
                     raise APIError(error_msg)
 

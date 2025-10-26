@@ -84,7 +84,7 @@ Commands available in chat:
 - `/sessions` - List all saved sessions
 
 **Keyboard shortcuts:**
-- `ESC` - Cancel the current operation (chat response, command execution, or search)
+- `Ctrl+C` - Interrupt/cancel the current operation (chat response, command execution, or search)
 
 ### Manage Configuration
 
