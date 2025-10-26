@@ -56,17 +56,21 @@ EOF
 ### Start Interactive Chat
 
 ```bash
-madison chat
+madison
 ```
 
+The chat is the default command, so you can just run `madison` to start. You can also specify a different model with `madison --model "gpt-4"`.
+
 Commands available in chat:
-- `@read <filepath>` - Read and display a file
-- `@write <filepath>` - Write content to a file
-- `@clear` - Clear conversation history
-- `@history` - Show conversation history
-- `@model` - Show current model
-- `@system` - Show/set system prompt
-- `@quit` - Exit the chat
+- `/read <filepath>` - Read and display a file
+- `/write <filepath>` - Write content to a file
+- `/exec <command>` - Execute a shell command
+- `/search <query>` - Search the web
+- `/clear` - Clear conversation history
+- `/history` - Show conversation history
+- `/model` - Show current model
+- `/system` - Show/set system prompt
+- `/quit` - Exit the chat
 
 ### Manage Configuration
 
@@ -85,24 +89,26 @@ madison config reset
 
 ```
 madison/
-├── madison/
-│   ├── api/
-│   │   ├── client.py         # OpenRouter API client
-│   │   └── models.py         # Data models
-│   ├── core/
-│   │   ├── config.py         # Configuration management
-│   │   ├── session.py        # Conversation session
-│   │   └── context.py        # Context management (future)
-│   ├── tools/
-│   │   ├── file_ops.py       # File operations
-│   │   ├── command_exec.py   # Command execution (future)
-│   │   └── web_search.py     # Web search (future)
-│   ├── cli.py                # Main CLI interface
-│   └── exceptions.py         # Custom exceptions
-├── tests/                    # Test suite
+├── src/
+│   └── madison/
+│       ├── api/
+│       │   ├── client.py         # OpenRouter API client
+│       │   └── models.py         # Data models
+│       ├── core/
+│       │   ├── config.py         # Configuration management
+│       │   ├── session.py        # Conversation session
+│       │   └── context.py        # Context management (future)
+│       ├── tools/
+│       │   ├── file_ops.py       # File operations
+│       │   ├── command_exec.py   # Command execution
+│       │   └── web_search.py     # Web search
+│       ├── cli.py                # Main CLI interface
+│       └── exceptions.py         # Custom exceptions
+├── tests/                        # Test suite
+├── .venv/                        # Virtual environment
 ├── README.md
-├── PLAN.md                   # Implementation plan
-└── pyproject.toml           # Project metadata
+├── PLAN.md                       # Implementation plan
+└── pyproject.toml               # Project metadata
 ```
 
 ## Development
@@ -134,21 +140,27 @@ mypy madison
 ## Dependencies
 
 - **typer** - CLI framework
-- **httpx** - Async HTTP client
+- **httpx** - Async HTTP client with streaming
 - **pydantic** - Data validation
 - **pyyaml** - Configuration parsing
 - **rich** - Terminal formatting
-- **duckduckgo-search** - Web search (future)
+- **ddgs** - Web search via DuckDuckGo
 
 ## Roadmap
 
-### Phase 2 - Tools
-- `@exec` command for bash execution
-- `@search` command for web search
-- Tool orchestration system
+### ✅ Phase 1 - MVP (Complete)
+- Basic configuration system
+- OpenRouter API client with streaming
+- Interactive REPL with chat
+- File operations (`/read`, `/write`)
+
+### ✅ Phase 2 - Tools (Complete)
+- `/exec` command for bash execution
+- `/search` command for web search
+- Tool orchestration
 
 ### Phase 3 - Polish
-- Session persistence
+- Session persistence (save/load conversations)
 - Command history
 - Better error messages
 - Configuration wizard
