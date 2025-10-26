@@ -120,7 +120,7 @@ async def _repl_loop(
             f"Commands: [cyan]/read[/cyan], [cyan]/write[/cyan], [cyan]/exec[/cyan], "
             f"[cyan]/search[/cyan], [cyan]/ask[/cyan], [cyan]/clear[/cyan], [cyan]/history[/cyan], "
             f"[cyan]/save[/cyan], [cyan]/load[/cyan], [cyan]/sessions[/cyan], "
-            f"[cyan]/model[/cyan], [cyan]/system[/cyan], [cyan]/quit[/cyan] ([cyan]/exit[/cyan])",
+            f"[cyan]/model[/cyan], [cyan]/model-list[/cyan], [cyan]/system[/cyan], [cyan]/quit[/cyan] ([cyan]/exit[/cyan])",
             expand=False,
         )
     )
@@ -283,6 +283,74 @@ async def _handle_commands(
                     console.print("  /model gpt-4                    # Set default model")
                     console.print("  /model default gpt-4            # Set default model")
                     console.print("  /model thinking claude-opus     # Set thinking model")
+
+    elif command == "/model-list":
+        if not args:
+            console.print("[red]Usage: /model-list <search_term> OR /model-list series=<series>[/red]")
+            console.print("[dim]Examples:[/dim]")
+            console.print("  /model-list gpt                 # Search for 'gpt' models")
+            console.print("  /model-list claude              # Search for 'claude' models")
+            console.print("  /model-list series=gpt          # List all GPT series models")
+            console.print("  /model-list series=claude       # List all Claude series models")
+        else:
+            try:
+                console.print("[dim]Fetching available models from OpenRouter...[/dim]")
+                models = await client.list_models()
+
+                # Parse the search term or series filter
+                search_term = None
+                series_filter = None
+
+                if args.startswith("series="):
+                    series_filter = args[7:].lower()  # Remove "series=" prefix
+                else:
+                    search_term = args.lower()
+
+                # Filter models
+                matching_models = []
+                for model in models:
+                    model_id = model.get("id", "").lower()
+                    model_name = model.get("name", "").lower()
+
+                    if series_filter:
+                        # Filter by series (e.g., "gpt", "claude")
+                        if series_filter in model_id or series_filter in model_name:
+                            matching_models.append(model)
+                    elif search_term:
+                        # Search by term
+                        if search_term in model_id or search_term in model_name:
+                            matching_models.append(model)
+
+                if not matching_models:
+                    console.print(
+                        f"[yellow]No models found matching: {args}[/yellow]"
+                    )
+                else:
+                    console.print(
+                        f"\n[bold]Found {len(matching_models)} model(s) matching '{args}':[/bold]"
+                    )
+                    for model in matching_models[:50]:  # Limit to 50 results
+                        model_id = model.get("id", "unknown")
+                        model_name = model.get("name", "")
+                        pricing = model.get("pricing", {})
+                        input_price = pricing.get("prompt", "N/A")
+                        output_price = pricing.get("completion", "N/A")
+
+                        console.print(f"\n[cyan]{model_id}[/cyan]")
+                        if model_name:
+                            console.print(f"  Name: {model_name}")
+                        console.print(f"  Input: ${input_price} | Output: ${output_price}")
+
+                    if len(matching_models) > 50:
+                        console.print(
+                            f"\n[dim]... and {len(matching_models) - 50} more (showing first 50)[/dim]"
+                        )
+
+                    console.print()
+                    console.print("[dim]Tip: Use /model <function> <model_id> to register a model for a function[/dim]")
+            except Exception as e:
+                logger.exception("Error listing models")
+                console.print(f"[red]Error:[/red] {e}")
 
     elif command == "/system":
         if not args:
@@ -471,7 +539,7 @@ async def _handle_commands(
     else:
         console.print(f"[red]Unknown command: {command}[/red]")
         console.print(
-            "[yellow]Available commands: /read, /write, /exec, /search, /ask, /clear, /history, /model, /system, /save, /load, /sessions, /quit, /exit[/yellow]"
+            "[yellow]Available commands: /read, /write, /exec, /search, /ask, /clear, /history, /model, /model-list, /system, /save, /load, /sessions, /quit, /exit[/yellow]"
         )
 
     return True

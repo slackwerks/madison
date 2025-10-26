@@ -77,6 +77,8 @@ Commands available in chat:
 - `/model` - Show/set models registered for different functions
 - `/ask <function> <prompt>` - Send a prompt to a registered function (e.g., `/ask thinking "What is 2+2?"`)
 - `/ask model=<MODEL> <prompt>` - Send a prompt to a specific model directly
+- `/model-list <search_term>` - Search available OpenRouter models (e.g., `/model-list gpt` or `/model-list claude`)
+- `/model-list series=<series>` - List models by series (e.g., `/model-list series=gpt` or `/model-list series=claude`)
 
 **File Operations:**
 - `/read <filepath>` - Read and display a file
