@@ -3,6 +3,7 @@
 import logging
 import os
 import signal
+import sys
 from typing import Optional
 
 from prompt_toolkit import PromptSession
@@ -57,7 +58,19 @@ class MadisonPrompt:
         @bindings.add("c-z")
         def _(event):
             """Handle Ctrl+Z to suspend the process."""
-            # Send SIGTSTP signal to the process group
+            # Exit the prompt first
+            event.app.exit()
+
+            # Print suspend message
+            print()
+            print("Madison has been suspended. Run `fg` to bring Madison back.")
+            print("Note: ctrl + z now suspends Madison, ctrl + _ undoes input.")
+
+            # Flush output to ensure message is printed before suspend
+            sys.stdout.flush()
+            sys.stderr.flush()
+
+            # Send SIGTSTP signal to suspend the process
             os.kill(os.getpid(), signal.SIGTSTP)
 
         self.session.key_bindings = bindings
