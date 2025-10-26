@@ -116,7 +116,7 @@ async def _repl_loop(
     console.print(
         Panel(
             f"[bold]Madison[/bold] - OpenRouter CLI\n"
-            f"Model: {model}\n\n"
+            f"Model: {config.default_model}\n\n"
             f"Commands: [cyan]/read[/cyan], [cyan]/write[/cyan], [cyan]/exec[/cyan], "
             f"[cyan]/search[/cyan], [cyan]/clear[/cyan], [cyan]/history[/cyan], "
             f"[cyan]/save[/cyan], [cyan]/load[/cyan], [cyan]/sessions[/cyan], "
@@ -258,7 +258,7 @@ async def _handle_commands(
             console.print("\n[bold]Configured Models:[/bold]")
             for task_type, model_name in sorted(config.models.items()):
                 console.print(f"  [cyan]{task_type}:[/cyan] {model_name}")
-            console.print(f"\n[cyan]Currently using:[/cyan] {model}")
+            console.print(f"\n[cyan]Currently using:[/cyan] {config.default_model}")
         else:
             # Parse model setting command: /model <task_type> <model_name>
             parts = args.split(maxsplit=1)
@@ -431,7 +431,7 @@ async def _handle_chat(
         response_text = ""
         async for token in client.chat_stream(
             messages=session.get_messages(),
-            model=model,
+            model=config.default_model,
             temperature=config.temperature,
             max_tokens=config.max_tokens,
         ):
