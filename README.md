@@ -62,15 +62,26 @@ madison
 The chat is the default command, so you can just run `madison` to start. You can also specify a different model with `madison --model "gpt-4"`.
 
 Commands available in chat:
-- `/read <filepath>` - Read and display a file
-- `/write <filepath>` - Write content to a file
-- `/exec <command>` - Execute a shell command
-- `/search <query>` - Search the web
+
+**Chat & Conversation:**
+- `/quit`, `/exit` - Exit the chat
 - `/clear` - Clear conversation history
 - `/history` - Show conversation history
-- `/model` - Show current model
 - `/system` - Show/set system prompt
-- `/quit`, `/exit` - Exit the chat
+- `/model` - Show current model
+
+**File Operations:**
+- `/read <filepath>` - Read and display a file
+- `/write <filepath>` - Write content to a file
+
+**Execution & Search:**
+- `/exec <command>` - Execute a shell command
+- `/search <query>` - Search the web
+
+**Session Management:**
+- `/save [name]` - Save current conversation to JSON file (auto-names if no name provided)
+- `/load <name>` - Resume a saved session
+- `/sessions` - List all saved sessions
 
 **Keyboard shortcuts:**
 - `ESC` - Cancel the current operation (chat response, command execution, or search)
@@ -78,6 +89,9 @@ Commands available in chat:
 ### Manage Configuration
 
 ```bash
+# Interactive setup wizard (first-time setup)
+madison config setup
+
 # Show current configuration
 madison config show
 
@@ -162,11 +176,11 @@ mypy madison
 - `/search` command for web search
 - Tool orchestration
 
-### Phase 3 - Polish
-- Session persistence (save/load conversations)
-- Command history
-- Better error messages
-- Configuration wizard
+### ✅ Phase 3 - Polish (Complete)
+- Session persistence with `/save` and `/load` commands
+- Command and query history tracking
+- Configuration wizard (`madison config setup`)
+- `/sessions` command to list saved conversations
 
 ## License
 
