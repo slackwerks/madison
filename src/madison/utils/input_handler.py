@@ -24,12 +24,17 @@ class MadisonPrompt:
 
     def __init__(self):
         """Initialize the Madison prompt."""
-        self.session = PromptSession()
+        # Disable mouse support to prevent spurious characters when mouse exits terminal
+        self.session = PromptSession(mouse_support=False)
         self.interrupted = False
         self._setup_key_bindings()
 
     def _setup_key_bindings(self) -> None:
-        """Setup key bindings for ESC and other shortcuts."""
+        """Setup key bindings for ESC and other shortcuts.
+
+        Note: We only bind ESC and let prompt_toolkit handle all other keys,
+        including Ctrl+Z for suspend and Ctrl+C for interrupt.
+        """
         bindings = KeyBindings()
 
         @bindings.add("escape")
