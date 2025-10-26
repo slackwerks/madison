@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 app = typer.Typer(
     name="madison",
     help="A Python CLI for interacting with OpenRouter models",
+    invoke_without_command=True,
 )
 console = Console()
 
@@ -47,14 +48,20 @@ def setup_logging(verbose: bool = False):
         logging.getLogger("madison").setLevel(logging.WARNING)
 
 
-@app.command()
-def chat(
+@app.callback(invoke_without_command=True)
+def main(
+    ctx: typer.Context,
     model: Optional[str] = typer.Option(
         None, "--model", "-m", help="OpenRouter model to use"
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
 ):
-    """Start an interactive chat session with an OpenRouter model."""
+    """Madison - OpenRouter CLI. Start an interactive chat session by default."""
+    # If a subcommand was invoked, don't run chat
+    if ctx.invoked_subcommand is not None:
+        return
+
+    # Otherwise, run chat
     setup_logging(verbose)
 
     try:
@@ -105,9 +112,9 @@ async def _repl_loop(
         Panel(
             f"[bold]Madison[/bold] - OpenRouter CLI\n"
             f"Model: {model}\n\n"
-            f"Commands: [cyan]@read[/cyan], [cyan]@write[/cyan], [cyan]@exec[/cyan], "
-            f"[cyan]@search[/cyan], [cyan]@clear[/cyan], [cyan]@history[/cyan], "
-            f"[cyan]@model[/cyan], [cyan]@quit[/cyan]",
+            f"Commands: [cyan]/read[/cyan], [cyan]/write[/cyan], [cyan]/exec[/cyan], "
+            f"[cyan]/search[/cyan], [cyan]/clear[/cyan], [cyan]/history[/cyan], "
+            f"[cyan]/model[/cyan], [cyan]/quit[/cyan]",
             expand=False,
         )
     )
@@ -137,7 +144,7 @@ async def _repl_loop(
                 )
 
             except KeyboardInterrupt:
-                console.print("\n[yellow]Interrupted. Type '@quit' to exit.[/yellow]")
+                console.print("\n[yellow]Interrupted. Type '/quit' to exit.[/yellow]")
             except Exception as e:
                 logger.exception("Error in REPL loop")
                 console.print(f"[red]Error:[/red] {e}")
@@ -163,8 +170,8 @@ async def _get_user_input() -> str:
     console.print("─" * console.width)
     console.print(
         "[dim]Commands:[/dim] "
-        "[cyan]@read[/cyan] [cyan]@write[/cyan] [cyan]@exec[/cyan] [cyan]@search[/cyan] "
-        "[cyan]@clear[/cyan] [cyan]@history[/cyan] [cyan]@model[/cyan] [cyan]@system[/cyan] [cyan]@quit[/cyan]",
+        "[cyan]/read[/cyan] [cyan]/write[/cyan] [cyan]/exec[/cyan] [cyan]/search[/cyan] "
+        "[cyan]/clear[/cyan] [cyan]/history[/cyan] [cyan]/model[/cyan] [cyan]/system[/cyan] [cyan]/quit[/cyan]",
         style="dim",
     )
 
@@ -196,22 +203,22 @@ async def _handle_commands(
     Returns:
         bool: Whether a command was handled
     """
-    if not user_input.startswith("@"):
+    if not user_input.startswith("/"):
         return False
 
     parts = user_input.split(maxsplit=1)
     command = parts[0].lower()
     args = parts[1] if len(parts) > 1 else ""
 
-    if command == "@quit":
+    if command == "/quit":
         console.print("[yellow]Goodbye![/yellow]")
         sys.exit(0)
 
-    elif command == "@clear":
+    elif command == "/clear":
         session.clear()
         console.print("[green]Conversation cleared.[/green]")
 
-    elif command == "@history":
+    elif command == "/history":
         history = session.get_history()
         if not history:
             console.print("[yellow]No conversation history yet.[/yellow]")
@@ -221,9 +228,9 @@ async def _handle_commands(
                 role = f"[cyan]{msg.role.upper()}[/cyan]"
                 console.print(f"{role}: {msg.content[:100]}")
 
-    elif command == "@read":
+    elif command == "/read":
         if not args:
-            console.print("[red]Usage: @read <filepath>[/red]")
+            console.print("[red]Usage: /read <filepath>[/red]")
         else:
             try:
                 content = file_ops.read(args)
@@ -237,30 +244,30 @@ async def _handle_commands(
             except FileOperationError as e:
                 console.print(f"[red]Error:[/red] {e}")
 
-    elif command == "@write":
-        console.print("[yellow]@write command requires file path and content.[/yellow]")
-        console.print("[yellow]Usage: @write <filepath>[/yellow]")
+    elif command == "/write":
+        console.print("[yellow]/write command requires file path and content.[/yellow]")
+        console.print("[yellow]Usage: /write <filepath>[/yellow]")
         console.print("[yellow]Then paste your content and press Ctrl+D (or Ctrl+Z on Windows)[/yellow]")
         # For now, just acknowledge
         # Full implementation would require reading multi-line input
 
-    elif command == "@model":
+    elif command == "/model":
         if not args:
             console.print(f"[cyan]Current model:[/cyan] {model}")
         else:
             # TODO: Implement model switching
             console.print("[yellow]Model switching not yet implemented.[/yellow]")
 
-    elif command == "@system":
+    elif command == "/system":
         if not args:
             console.print(f"[cyan]Current system prompt:[/cyan]\n{session.system_prompt}")
         else:
             session.messages[0].content = args
             console.print("[green]System prompt updated.[/green]")
 
-    elif command == "@exec":
+    elif command == "/exec":
         if not args:
-            console.print("[red]Usage: @exec <command>[/red]")
+            console.print("[red]Usage: /exec <command>[/red]")
         else:
             try:
                 console.print(f"[dim]Executing:[/dim] {args}")
@@ -283,9 +290,9 @@ async def _handle_commands(
             except CommandExecutionError as e:
                 console.print(f"[red]Error:[/red] {e}")
 
-    elif command == "@search":
+    elif command == "/search":
         if not args:
-            console.print("[red]Usage: @search <query>[/red]")
+            console.print("[red]Usage: /search <query>[/red]")
         else:
             try:
                 console.print(f"[dim]Searching for:[/dim] {args}")
@@ -300,7 +307,7 @@ async def _handle_commands(
     else:
         console.print(f"[red]Unknown command: {command}[/red]")
         console.print(
-            "[yellow]Available commands: @read, @write, @exec, @search, @clear, @history, @model, @system, @quit[/yellow]"
+            "[yellow]Available commands: /read, /write, /exec, /search, /clear, /history, /model, /system, /quit[/yellow]"
         )
 
     return True
