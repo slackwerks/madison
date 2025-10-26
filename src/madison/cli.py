@@ -15,8 +15,15 @@ from madison.api.client import OpenRouterClient
 from madison.api.models import Message
 from madison.core.config import Config
 from madison.core.session import Session
-from madison.exceptions import ConfigError, FileOperationError
+from madison.exceptions import (
+    CommandExecutionError,
+    ConfigError,
+    FileOperationError,
+    MadisonError,
+)
+from madison.tools.command_exec import CommandExecutor
 from madison.tools.file_ops import FileOperations
+from madison.tools.web_search import WebSearcher
 
 # Setup logging
 logging.basicConfig(
@@ -98,11 +105,16 @@ async def _repl_loop(
         Panel(
             f"[bold]Madison[/bold] - OpenRouter CLI\n"
             f"Model: {model}\n\n"
-            f"Commands: [cyan]@read[/cyan], [cyan]@write[/cyan], [cyan]@clear[/cyan], "
-            f"[cyan]@history[/cyan], [cyan]@model[/cyan], [cyan]@quit[/cyan]",
+            f"Commands: [cyan]@read[/cyan], [cyan]@write[/cyan], [cyan]@exec[/cyan], "
+            f"[cyan]@search[/cyan], [cyan]@clear[/cyan], [cyan]@history[/cyan], "
+            f"[cyan]@model[/cyan], [cyan]@quit[/cyan]",
             expand=False,
         )
     )
+
+    # Initialize tools
+    cmd_executor = CommandExecutor(timeout=config.timeout)
+    searcher = WebSearcher(max_results=5)
 
     async with OpenRouterClient(config.api_key, timeout=config.timeout) as client:
         while True:
@@ -114,7 +126,9 @@ async def _repl_loop(
                     continue
 
                 # Handle special commands
-                if await _handle_commands(user_input, session, file_ops, config, client, model):
+                if await _handle_commands(
+                    user_input, session, file_ops, config, client, model, cmd_executor, searcher
+                ):
                     continue
 
                 # Regular chat
@@ -149,8 +163,8 @@ async def _get_user_input() -> str:
     console.print("─" * console.width)
     console.print(
         "[dim]Commands:[/dim] "
-        "[cyan]@read[/cyan] [cyan]@write[/cyan] [cyan]@clear[/cyan] "
-        "[cyan]@history[/cyan] [cyan]@model[/cyan] [cyan]@system[/cyan] [cyan]@quit[/cyan]",
+        "[cyan]@read[/cyan] [cyan]@write[/cyan] [cyan]@exec[/cyan] [cyan]@search[/cyan] "
+        "[cyan]@clear[/cyan] [cyan]@history[/cyan] [cyan]@model[/cyan] [cyan]@system[/cyan] [cyan]@quit[/cyan]",
         style="dim",
     )
 
@@ -164,6 +178,8 @@ async def _handle_commands(
     config: Config,
     client: OpenRouterClient,
     model: str,
+    cmd_executor: CommandExecutor,
+    searcher: WebSearcher,
 ) -> bool:
     """Handle special commands.
 
@@ -174,6 +190,8 @@ async def _handle_commands(
         config: Config
         client: API client
         model: Current model
+        cmd_executor: Command executor
+        searcher: Web searcher
 
     Returns:
         bool: Whether a command was handled
@@ -240,10 +258,49 @@ async def _handle_commands(
             session.messages[0].content = args
             console.print("[green]System prompt updated.[/green]")
 
+    elif command == "@exec":
+        if not args:
+            console.print("[red]Usage: @exec <command>[/red]")
+        else:
+            try:
+                console.print(f"[dim]Executing:[/dim] {args}")
+                stdout, stderr, returncode = await cmd_executor.execute(args)
+
+                if stdout:
+                    console.print("\n[bold cyan]Output:[/bold cyan]")
+                    console.print(stdout)
+                if stderr:
+                    console.print("\n[bold red]Errors:[/bold red]")
+                    console.print(stderr)
+                if returncode != 0:
+                    console.print(f"\n[yellow]Exit code: {returncode}[/yellow]")
+
+                # Add command and output to session for context
+                context_msg = f"Command: {args}\n\nOutput:\n{stdout}"
+                if stderr:
+                    context_msg += f"\n\nErrors:\n{stderr}"
+                session.add_message("user", context_msg)
+            except CommandExecutionError as e:
+                console.print(f"[red]Error:[/red] {e}")
+
+    elif command == "@search":
+        if not args:
+            console.print("[red]Usage: @search <query>[/red]")
+        else:
+            try:
+                console.print(f"[dim]Searching for:[/dim] {args}")
+                results = await searcher.search(args)
+                console.print(f"\n{results}")
+
+                # Add search results to session for context
+                session.add_message("user", f"Web search results for '{args}':\n\n{results}")
+            except MadisonError as e:
+                console.print(f"[red]Error:[/red] {e}")
+
     else:
         console.print(f"[red]Unknown command: {command}[/red]")
         console.print(
-            "[yellow]Available commands: @read, @write, @clear, @history, @model, @system, @quit[/yellow]"
+            "[yellow]Available commands: @read, @write, @exec, @search, @clear, @history, @model, @system, @quit[/yellow]"
         )
 
     return True
