@@ -1,0 +1,162 @@
+# Madison - OpenRouter CLI
+
+A pure Python CLI application for interacting with OpenRouter models, similar to Claude Code but focused on OpenRouter integration.
+
+## Features
+
+- **Interactive REPL chat** with streaming responses
+- **Model selection** - Choose from available OpenRouter models
+- **File operations** - Read and write files with `@read` and `@write` commands
+- **Conversation history** - Maintain context across multiple messages
+- **Configuration management** - Environment variables or YAML config files
+- **Async-first design** - Fast streaming responses using asyncio and httpx
+
+## Installation
+
+```bash
+# Clone or download the repository
+cd madison
+
+# Install in development mode
+pip install -e .
+
+# Or with dev dependencies
+pip install -e ".[dev]"
+```
+
+## Configuration
+
+Madison supports configuration through:
+
+1. **Environment variable** (highest priority): `OPENROUTER_API_KEY`
+2. **Configuration file**: `~/.madison/config.yaml`
+3. **Built-in defaults**
+
+### Setup
+
+```bash
+# Option 1: Set environment variable
+export OPENROUTER_API_KEY="your-api-key-here"
+
+# Option 2: Create config file
+mkdir -p ~/.madison
+cat > ~/.madison/config.yaml << EOF
+api_key: "your-api-key-here"
+default_model: "openrouter/auto"
+system_prompt: "You are a helpful assistant."
+temperature: 0.7
+max_tokens: 2000
+timeout: 30
+history_size: 50
+EOF
+```
+
+## Usage
+
+### Start Interactive Chat
+
+```bash
+madison chat
+```
+
+Commands available in chat:
+- `@read <filepath>` - Read and display a file
+- `@write <filepath>` - Write content to a file
+- `@clear` - Clear conversation history
+- `@history` - Show conversation history
+- `@model` - Show current model
+- `@system` - Show/set system prompt
+- `@quit` - Exit the chat
+
+### Manage Configuration
+
+```bash
+# Show current configuration
+madison config show
+
+# Set a configuration value
+madison config set default_model "claude-3-sonnet"
+
+# Reset to defaults
+madison config reset
+```
+
+## Project Structure
+
+```
+madison/
+├── madison/
+│   ├── api/
+│   │   ├── client.py         # OpenRouter API client
+│   │   └── models.py         # Data models
+│   ├── core/
+│   │   ├── config.py         # Configuration management
+│   │   ├── session.py        # Conversation session
+│   │   └── context.py        # Context management (future)
+│   ├── tools/
+│   │   ├── file_ops.py       # File operations
+│   │   ├── command_exec.py   # Command execution (future)
+│   │   └── web_search.py     # Web search (future)
+│   ├── cli.py                # Main CLI interface
+│   └── exceptions.py         # Custom exceptions
+├── tests/                    # Test suite
+├── README.md
+├── PLAN.md                   # Implementation plan
+└── pyproject.toml           # Project metadata
+```
+
+## Development
+
+### Running Tests
+
+```bash
+pytest
+pytest -v  # Verbose
+pytest --cov  # With coverage
+```
+
+### Code Quality
+
+```bash
+# Format code
+black madison tests
+
+# Check imports
+isort madison tests
+
+# Lint
+flake8 madison tests
+
+# Type checking
+mypy madison
+```
+
+## Dependencies
+
+- **typer** - CLI framework
+- **httpx** - Async HTTP client
+- **pydantic** - Data validation
+- **pyyaml** - Configuration parsing
+- **rich** - Terminal formatting
+- **duckduckgo-search** - Web search (future)
+
+## Roadmap
+
+### Phase 2 - Tools
+- `@exec` command for bash execution
+- `@search` command for web search
+- Tool orchestration system
+
+### Phase 3 - Polish
+- Session persistence
+- Command history
+- Better error messages
+- Configuration wizard
+
+## License
+
+MIT
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit issues or pull requests.
