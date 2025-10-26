@@ -103,6 +103,10 @@ class MadisonPrompt:
             if self.interrupted:
                 raise InterruptedError("User pressed ESC")
 
+            # Check if input is None (happens when Ctrl+Z exits the prompt)
+            if user_input is None:
+                raise InterruptedError("Prompt exited")
+
             # Show bottom bar with commands
             if show_commands:
                 print("─" * TERM_WIDTH)
@@ -149,6 +153,10 @@ class MadisonPrompt:
 
             if self.interrupted:
                 raise InterruptedError("User pressed ESC")
+
+            # Check if input is None (happens when Ctrl+Z exits the prompt)
+            if user_input is None:
+                raise InterruptedError("Prompt exited")
 
             # Show bottom bar with commands
             if show_commands:
