@@ -425,7 +425,7 @@ class OpenRouterClient:
             initial_message: Initial user message/intent
             model: Model name
             tools: List of tool definitions
-            tool_executor: Function(tool_name, arguments) -> result
+            tool_executor: Function(tool_name, arguments) -> result (can be sync or async)
             temperature: Temperature for sampling
             max_tokens: Maximum tokens per response
             max_iterations: Maximum conversation turns (safety limit)
@@ -470,6 +470,11 @@ class OpenRouterClient:
                 try:
                     logger.info(f"Executing tool: {tool_call.name}")
                     result = tool_executor(tool_call.name, tool_call.arguments)
+
+                    # Handle both sync and async results
+                    if asyncio.iscoroutine(result):
+                        result = await result
+
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": tool_call.id,
