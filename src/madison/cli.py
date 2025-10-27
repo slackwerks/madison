@@ -278,7 +278,21 @@ async def _handle_commands(
             for task_type, model_name in sorted(config.models.items()):
                 tool_support = "✓ tools" if config.model_supports_tools(model_name) else "✗ no tools"
                 console.print(f"  [cyan]{task_type}:[/cyan] {model_name} [{tool_support}]")
-            console.print(f"\n[cyan]Currently using:[/cyan] {config.default_model}")
+
+            # Show which model will be used for tool execution
+            console.print("\n[bold]Tool Execution Strategy:[/bold]")
+            default_model = config.default_model
+            tools_model = config.models.get("tools")
+            default_supports = config.model_supports_tools(default_model)
+
+            if default_supports:
+                console.print(f"  [green]✓[/green] Using default model for tools: {default_model}")
+            elif tools_model:
+                console.print(f"  [green]✓[/green] Using tools model: {tools_model}")
+                console.print(f"    (default '{default_model}' doesn't support tools)")
+            else:
+                console.print(f"  [yellow]⚠[/yellow] Default model '{default_model}' doesn't support tools")
+                console.print(f"    Set a tools model with: /model tools <model-name>")
         else:
             # Parse model setting command: /model <task_type> <model_name>
             parts = args.split(maxsplit=1)
@@ -293,10 +307,14 @@ async def _handle_commands(
                 else:
                     console.print("[red]Usage: /model [task_type] [model_name][/red]")
                     console.print("[dim]Examples:[/dim]")
-                    console.print("  /model                          # Show all models")
-                    console.print("  /model gpt-4                    # Set default model")
-                    console.print("  /model default gpt-4            # Set default model")
-                    console.print("  /model thinking claude-opus     # Set thinking model")
+                    console.print("  /model                                    # Show all models & strategy")
+                    console.print("  /model gpt-4                              # Set default model")
+                    console.print("  /model default gpt-4                      # Set default model")
+                    console.print("  /model tools claude-sonnet-4              # Set tools-only model")
+                    console.print("  /model thinking claude-opus               # Set thinking model")
+                    console.print("\n[dim]Tool Execution Model:[/dim]")
+                    console.print("  Use '/model tools <model>' to set a dedicated model for tool execution.")
+                    console.print("  This is useful when your default model doesn't support tool calling.")
 
     elif command == "/model-list":
         if not args:
