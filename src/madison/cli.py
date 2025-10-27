@@ -276,25 +276,20 @@ async def _handle_commands(
             # Show all configured models
             console.print("\n[bold]Configured Models:[/bold]")
             for task_type, model_name in sorted(config.models.items()):
-                console.print(f"  [cyan]{task_type}:[/cyan] {model_name}")
+                tool_support = "✓ tools" if config.model_supports_tools(model_name) else "✗ no tools"
+                console.print(f"  [cyan]{task_type}:[/cyan] {model_name} [{tool_support}]")
             console.print(f"\n[cyan]Currently using:[/cyan] {config.default_model}")
         else:
             # Parse model setting command: /model <task_type> <model_name>
             parts = args.split(maxsplit=1)
             if len(parts) == 2:
                 task_type, new_model = parts
-                config.set_model(new_model, task_type)
-                config.save()
-                console.print(f"[green]✓ Set {task_type} model to:[/green] {new_model}")
-                history_manager.add_entry(f"Set {task_type} model to {new_model}", "command")
+                _handle_model_change(config, new_model, task_type, history_manager)
             else:
                 # Single arg could be just model name (set default) or invalid
                 if " " not in args:
                     # Assume setting default model
-                    config.set_model(args, "default")
-                    config.save()
-                    console.print(f"[green]✓ Set default model to:[/green] {args}")
-                    history_manager.add_entry(f"Set default model to {args}", "command")
+                    _handle_model_change(config, args, "default", history_manager)
                 else:
                     console.print("[red]Usage: /model [task_type] [model_name][/red]")
                     console.print("[dim]Examples:[/dim]")
@@ -564,6 +559,44 @@ async def _handle_commands(
     return True
 
 
+def _handle_model_change(
+    config: Config,
+    new_model: str,
+    task_type: str,
+    history_manager: HistoryManager,
+) -> None:
+    """Handle model change with validation and user notification.
+
+    Args:
+        config: Configuration object
+        new_model: Model to set
+        task_type: Task type to set model for
+        history_manager: History manager for logging
+    """
+    # Check if model supports tools
+    supports_tools = config.model_supports_tools(new_model)
+
+    if not supports_tools:
+        console.print(f"\n[yellow]⚠ Warning:[/yellow] Model [cyan]{new_model}[/cyan] does NOT support tool calling")
+        console.print("[dim]This means the agent won't be able to execute commands, read files, etc.[/dim]")
+        console.print("[dim]The model will only be available for regular chat conversations.[/dim]\n")
+
+        # Ask for confirmation
+        response = console.input("Continue setting this model anyway? [y/N]: ").lower()
+        if response not in ("y", "yes"):
+            console.print("[yellow]Model change cancelled.[/yellow]")
+            return
+
+    # Set the model
+    config.set_model(new_model, task_type)
+    config.save()
+
+    # Show confirmation
+    tool_indicator = "[green]✓ supports tools[/green]" if supports_tools else "[yellow]✗ no tool support[/yellow]"
+    console.print(f"[green]✓ Set {task_type} model to:[/green] {new_model} {tool_indicator}")
+    history_manager.add_entry(f"Set {task_type} model to {new_model}", "command")
+
+
 def _is_retryable_error(error_msg: str) -> bool:
     """Check if an error message indicates a retryable error.
 
@@ -684,6 +717,17 @@ def config(
 
             cfg = Config.load()
             if hasattr(cfg, key):
+                # Special handling for model settings - validate tool support
+                if key == "default_model":
+                    supports_tools = cfg.model_supports_tools(value)
+                    if not supports_tools:
+                        console.print(f"\n[yellow]⚠ Warning:[/yellow] Model [cyan]{value}[/cyan] does NOT support tool calling")
+                        console.print("[dim]This means the agent won't be able to execute commands, read files, etc.[/dim]")
+                        response = console.input("Continue? [y/N]: ").lower()
+                        if response not in ("y", "yes"):
+                            console.print("[yellow]Change cancelled.[/yellow]")
+                            return
+
                 setattr(cfg, key, value)
                 cfg.save()
                 console.print(f"[green]Set {key} = {value}[/green]")

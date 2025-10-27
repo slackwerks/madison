@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 import yaml
 from pydantic import BaseModel, Field, validator
 
+from madison.core.model_registry import ModelRegistry
 from madison.exceptions import ConfigError
 
 
@@ -156,6 +157,18 @@ class Config(BaseModel):
         # Also update default_model if setting default task type
         if task_type == "default":
             self.default_model = model
+
+    @staticmethod
+    def model_supports_tools(model: str) -> bool:
+        """Check if a model supports tool calling.
+
+        Args:
+            model: Model identifier (e.g., 'openai/gpt-4')
+
+        Returns:
+            bool: True if model supports tool calling
+        """
+        return ModelRegistry.supports_tools(model)
 
     def save(self) -> None:
         """Save configuration to file."""
