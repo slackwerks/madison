@@ -35,7 +35,7 @@ pip install -e ".[dev]"
 Madison supports configuration through:
 
 1. **Environment variable** (highest priority): `OPENROUTER_API_KEY`
-2. **Configuration file**: `~/.madison/config.yaml`
+2. **Configuration file**: `~/.config/madison/config.yaml` (XDG Base Directory)
 3. **Built-in defaults**
 
 ### Setup
@@ -45,8 +45,8 @@ Madison supports configuration through:
 export OPENROUTER_API_KEY="your-api-key-here"
 
 # Option 2: Create config file
-mkdir -p ~/.madison
-cat > ~/.madison/config.yaml << EOF
+mkdir -p ~/.config/madison
+cat > ~/.config/madison/config.yaml << EOF
 api_key: "your-api-key-here"
 default_model: "openrouter/auto"
 system_prompt: "You are a helpful assistant."
@@ -75,8 +75,8 @@ Commands available in chat:
 - `/retry` - Resubmit the last prompt (useful after rate limit errors)
 - `/history` - Show conversation history
 - `/system` - Show/set system prompt
-- `/model` - Show/set models registered for different functions
-- `/ask <function> <prompt>` - Send a prompt to a registered function (e.g., `/ask thinking "What is 2+2?"`)
+- `/model` - Show/set models registered for different strategies
+- `/ask <strategy> <prompt>` - Send a prompt to a registered strategy (e.g., `/ask thinking "What is 2+2?"`)
 - `/ask model=<MODEL> <prompt>` - Send a prompt to a specific model directly
 - `/model-list <search_term>` - Search available OpenRouter models (e.g., `/model-list gpt` or `/model-list claude`)
 - `/model-list series=<series>` - List models by series (e.g., `/model-list series=gpt` or `/model-list series=claude`)
@@ -116,9 +116,9 @@ madison config set default_model "claude-3-sonnet"
 madison config reset
 ```
 
-## Function-Based Model Registration
+## Strategy-Based Model Registration
 
-Madison uses a **function-based model system** to organize different models for different tasks. This allows you to register models for semantic functions like "thinking", "planning", "analysis", etc., and then use them with the `/ask` command.
+Madison uses a **strategy-based model system** to organize different models for different tasks. This allows you to register models for semantic strategies like "thinking", "planning", "analysis", etc., and then use them with the `/ask` command.
 
 ### Example Configuration
 
@@ -131,32 +131,32 @@ models:
   thinking: claude-opus              # Deep reasoning and analysis
   planning: gpt-4-turbo              # Strategic planning
   summarization: gpt-3.5-turbo       # Quick summaries (faster/cheaper)
-  bork: dolphin-mistral              # Custom function for your workflow
+  tools: claude-sonnet-4             # For agent tool execution
 ```
 
-### Using Functions with `/ask`
+### Using Strategies with `/ask`
 
 ```bash
-# Use the 'thinking' function (runs claude-opus)
+# Use the 'thinking' strategy (runs claude-opus)
 /ask thinking "What are the implications of quantum computing?"
 
-# Use the 'planning' function (runs gpt-4-turbo)
+# Use the 'planning' strategy (runs gpt-4-turbo)
 /ask planning "Create a project roadmap for 2025"
 
-# Use the 'summarization' function (runs gpt-3.5-turbo)
+# Use the 'summarization' strategy (runs gpt-3.5-turbo)
 /ask summarization "Condense this article into 3 bullet points"
 
-# Direct model specification (bypasses function registration)
+# Direct model specification (bypasses strategy registration)
 /ask model=gpt-4 "Quick question about syntax"
 ```
 
-### Managing Functions
+### Managing Strategies
 
 ```bash
-# Show all registered functions and their models
+# Show all registered strategies and their models
 /model
 
-# Register a new function (in chat)
+# Register a new strategy (in chat)
 /model thinking claude-3.5-sonnet
 
 # Change default model (used for regular chat)
@@ -167,7 +167,7 @@ models:
 - **Semantic clarity** - Commands express intent ("thinking", "planning") not implementation
 - **Easy experimentation** - Swap models without changing commands
 - **Cost optimization** - Use cheaper models for simple tasks, expensive ones for complex reasoning
-- **Future-proof** - Ready for agent integration where agents can override these functions
+- **Future-proof** - Ready for agent integration where agents can override these strategies
 
 ## Project Scope and Security
 
