@@ -457,13 +457,14 @@ class OpenRouterClient:
             logger.debug(f"Tool calling iteration {iteration + 1}/{max_iterations}")
 
             # Get response with potential tool calls
+            # NOTE: Don't pass message_serializer - OpenRouter expects OpenAI format and does its own
+            # provider-specific conversion. The tool_caller is only for extracting tool calls.
             response_text, tool_calls = await self.call_with_tools(
                 messages=messages,
                 model=model,
                 tools=tools,
                 temperature=temperature,
                 max_tokens=max_tokens,
-                message_serializer=tool_caller.serialize_message,
             )
 
             # Add assistant's response to conversation
