@@ -1,6 +1,6 @@
 """Data models for OpenRouter API."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -9,7 +9,10 @@ class Message(BaseModel):
     """Chat message model."""
 
     role: str = Field(..., description="Message role: 'user', 'assistant', or 'system'")
-    content: Optional[str] = Field(default=None, description="Message content")
+    content: Optional[Union[str, List[Dict[str, Any]]]] = Field(
+        default=None,
+        description="Message content (string for text, list of dicts for tool results)"
+    )
     tool_calls: Optional[List[Dict[str, Any]]] = Field(default=None, description="Tool calls made by assistant")
 
 

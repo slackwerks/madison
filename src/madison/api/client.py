@@ -489,9 +489,10 @@ class OpenRouterClient:
                     })
 
             # Add tool results to conversation
+            # Pass tool results as a list of content blocks (required for Anthropic API)
             tool_result_message = Message(
                 role="user",
-                content=json.dumps(tool_results),
+                content=tool_results,
             )
             messages.append(tool_result_message)
 
