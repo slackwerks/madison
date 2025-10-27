@@ -131,7 +131,7 @@ Madison uses a **strategy-based model system** to organize different models for 
 
 ### Example Configuration
 
-In your `~/.madison/config.yaml`:
+In your `~/.config/madison/config.yaml`:
 
 ```yaml
 api_key: "your-api-key"
@@ -204,7 +204,7 @@ Madison comes with 5 built-in agent templates covering common use cases:
 # 2. Enter agent name, category, and description
 # 3. Set optional model, temperature, and max_tokens
 # 4. Specify which tools the agent can use (optional)
-# 5. Choose storage scope (user ~/.madison/agents or project ./.madison/agents)
+# 5. Choose storage scope (user ~/.config/madison/agents or project ./.madison/agents)
 # 6. Enter or edit the system prompt
 ```
 
@@ -235,7 +235,7 @@ Madison comes with 5 built-in agent templates covering common use cases:
 
 ### Agent Storage
 
-- **User scope**: Agents stored in `~/.madison/agents/` are available globally
+- **User scope**: Agents stored in `~/.config/madison/agents/` are available globally
 - **Project scope**: Agents stored in `./.madison/agents/` are only available in that project
 - **File format**: Agents are stored as markdown files with YAML frontmatter for easy editing
 
@@ -311,7 +311,7 @@ permissions:
 
 ### Project vs User Configuration
 
-- **User Config** (`~/.madison/config.yaml`): Global settings (API key, models, temperature, etc.)
+- **User Config** (`~/.config/madison/config.yaml`): Global settings (API key, models, temperature, etc.)
 - **Project Config** (`./.madison/config.yaml`): Per-project security rules (permissions, file/command restrictions)
 
 ## Project Structure

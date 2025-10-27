@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 from dataclasses import dataclass, asdict, field
 from pathlib import Path
 from typing import Optional, List, Dict, Any
@@ -36,7 +37,12 @@ class AgentDefinition:
         if self.scope == "project":
             agents_dir = Path.cwd() / ".madison" / "agents"
         else:  # user
-            agents_dir = Path.home() / ".madison" / "agents"
+            # Use XDG Base Directory Convention
+            xdg_config_home = os.getenv("XDG_CONFIG_HOME")
+            if xdg_config_home:
+                agents_dir = Path(xdg_config_home) / "madison" / "agents"
+            else:
+                agents_dir = Path.home() / ".config" / "madison" / "agents"
 
         return agents_dir / self.category / f"{self.name.lower().replace(' ', '-')}.md"
 
@@ -107,7 +113,13 @@ class AgentManager:
 
     def __init__(self):
         """Initialize agent manager."""
-        self.user_agents_dir = Path.home() / ".madison" / "agents"
+        # Use XDG Base Directory Convention for user agents
+        xdg_config_home = os.getenv("XDG_CONFIG_HOME")
+        if xdg_config_home:
+            self.user_agents_dir = Path(xdg_config_home) / "madison" / "agents"
+        else:
+            self.user_agents_dir = Path.home() / ".config" / "madison" / "agents"
+
         self.project_agents_dir = Path.cwd() / ".madison" / "agents"
 
     def list_agents(
