@@ -40,9 +40,9 @@ def run_setup_wizard() -> Config:
 
     # Model selection
     console.print()
-    console.print("[bold]Step 2: Function-Based Model Configuration[/bold]")
+    console.print("[bold]Step 2: Strategy-Based Model Configuration[/bold]")
     console.print(
-        "[dim]Madison uses 'functions' to organize different models for different tasks.[/dim]"
+        "[dim]Madison uses 'strategies' to organize different models for different tasks.[/dim]"
     )
     console.print(
         "[dim]For example, you might use gpt-4 for 'thinking' and gpt-3.5 for 'summarization'.[/dim]"
@@ -52,45 +52,45 @@ def run_setup_wizard() -> Config:
     )
 
     default_model = Prompt.ask(
-        "Enter default model (used when no specific function is requested)",
+        "Enter default model (used when no specific strategy is requested)",
         default="openrouter/auto",
     )
 
-    # Function-specific models
+    # Strategy-specific models
     models = {"default": default_model}
     console.print()
-    console.print("[dim]You can now register additional functions with specific models.[/dim]")
+    console.print("[dim]You can now register additional strategies with specific models.[/dim]")
     console.print("[dim]For example: 'thinking' for deep reasoning, 'planning' for strategy, etc.[/dim]")
 
-    # Add some common function suggestions
-    suggested_functions = ["thinking", "planning", "summarization", "analysis"]
-    for suggested_func in suggested_functions:
+    # Add some common strategy suggestions
+    suggested_strategies = ["thinking", "planning", "summarization", "analysis"]
+    for suggested_strategy in suggested_strategies:
         if Confirm.ask(
-            f"Configure a '{suggested_func}' function?",
-            default=suggested_func == "thinking",  # thinking is suggested by default
+            f"Configure a '{suggested_strategy}' strategy?",
+            default=suggested_strategy == "thinking",  # thinking is suggested by default
         ):
-            func_model = Prompt.ask(
-                f"Enter model for '{suggested_func}' (or press Enter for same as default)",
+            strategy_model = Prompt.ask(
+                f"Enter model for '{suggested_strategy}' (or press Enter for same as default)",
                 default=default_model,
             )
-            if func_model and func_model != default_model:
-                models[suggested_func] = func_model
-            elif func_model:
-                models[suggested_func] = func_model
+            if strategy_model and strategy_model != default_model:
+                models[suggested_strategy] = strategy_model
+            elif strategy_model:
+                models[suggested_strategy] = strategy_model
 
-    # Allow adding custom functions
+    # Allow adding custom strategies
     console.print()
-    while Confirm.ask("Add a custom function?", default=False):
-        custom_func = Prompt.ask("Function name (e.g., 'bork', 'analysis')")
-        if custom_func and custom_func not in models:
+    while Confirm.ask("Add a custom strategy?", default=False):
+        custom_strategy = Prompt.ask("Strategy name (e.g., 'bork', 'analysis')")
+        if custom_strategy and custom_strategy not in models:
             custom_model = Prompt.ask(
-                f"Enter model for '{custom_func}'",
+                f"Enter model for '{custom_strategy}'",
                 default=default_model,
             )
             if custom_model:
-                models[custom_func] = custom_model
-        elif custom_func in models:
-            console.print(f"[yellow]Function '{custom_func}' already configured.[/yellow]")
+                models[custom_strategy] = custom_model
+        elif custom_strategy in models:
+            console.print(f"[yellow]Strategy '{custom_strategy}' already configured.[/yellow]")
 
     # System prompt
     console.print()
@@ -263,7 +263,7 @@ def run_setup_wizard() -> Config:
     # Summary
     console.print()
     models_summary = "\n".join(
-        f"  [cyan]{func}[/cyan] → {model}" for func, model in sorted(config.models.items())
+        f"  [cyan]{strategy}[/cyan] → {model}" for strategy, model in sorted(config.models.items())
     )
 
     project_scope_info = (
@@ -277,7 +277,7 @@ def run_setup_wizard() -> Config:
     console.print(
         Panel(
             "[bold green]Setup Complete![/bold green]\n\n"
-            f"Registered Functions:\n{models_summary}\n"
+            f"Registered Strategies:\n{models_summary}\n"
             f"Temperature: {config.temperature}\n"
             f"Timeout: {config.timeout}s\n"
             f"History Size: {config.history_size}\n"

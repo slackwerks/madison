@@ -379,7 +379,7 @@ async def _handle_commands(
                         )
 
                     console.print()
-                    console.print("[dim]Tip: Use /model <function> <model_id> to register a model for a function[/dim]")
+                    console.print("[dim]Tip: Use /model <strategy> <model_id> to register a model for a strategy[/dim]")
             except Exception as e:
                 logger.exception("Error listing models")
                 console.print(f"[red]Error:[/red] {e}")
@@ -494,41 +494,41 @@ async def _handle_commands(
 
     elif command == "/ask":
         if not args:
-            console.print("[red]Usage: /ask <function|model=MODEL> <prompt>[/red]")
+            console.print("[red]Usage: /ask <strategy|model=MODEL> <prompt>[/red]")
             console.print("[dim]Examples:[/dim]")
             console.print("  /ask thinking What is 2+2?")
             console.print("  /ask planning Write a 5-year plan")
             console.print("  /ask model=gpt-4 Quick question")
-            console.print("\n[dim]Available functions:[/dim]")
-            for func_name in sorted(config.models.keys()):
-                model_name = config.models[func_name]
-                console.print(f"  [cyan]{func_name}[/cyan] → {model_name}")
+            console.print("\n[dim]Available strategies:[/dim]")
+            for strategy_name in sorted(config.models.keys()):
+                model_name = config.models[strategy_name]
+                console.print(f"  [cyan]{strategy_name}[/cyan] → {model_name}")
         else:
-            # Parse function/model and prompt: /ask <function|model=MODEL> <prompt>
+            # Parse strategy/model and prompt: /ask <strategy|model=MODEL> <prompt>
             parts = args.split(maxsplit=1)
             if len(parts) == 2:
-                func_or_model, prompt = parts
+                strategy_or_model, prompt = parts
 
                 # Determine which model to use
                 specific_model = None
-                func_label = None
+                strategy_label = None
 
-                if func_or_model.startswith("model="):
+                if strategy_or_model.startswith("model="):
                     # Direct model specification
-                    specific_model = func_or_model[6:]  # Remove "model=" prefix
-                    func_label = specific_model
+                    specific_model = strategy_or_model[6:]  # Remove "model=" prefix
+                    strategy_label = specific_model
                 else:
-                    # Function-based lookup
-                    func_name = func_or_model
-                    if func_name in config.models:
-                        specific_model = config.models[func_name]
-                        func_label = func_name
+                    # Strategy-based lookup
+                    strategy_name = strategy_or_model
+                    if strategy_name in config.models:
+                        specific_model = config.models[strategy_name]
+                        strategy_label = strategy_name
                     else:
-                        console.print(f"[red]Unknown function: {func_name}[/red]")
-                        console.print("[dim]Available functions:[/dim]")
-                        for avail_func in sorted(config.models.keys()):
-                            model_name = config.models[avail_func]
-                            console.print(f"  [cyan]{avail_func}[/cyan] → {model_name}")
+                        console.print(f"[red]Unknown strategy: {strategy_name}[/red]")
+                        console.print("[dim]Available strategies:[/dim]")
+                        for avail_strategy in sorted(config.models.keys()):
+                            model_name = config.models[avail_strategy]
+                            console.print(f"  [cyan]{avail_strategy}[/cyan] → {model_name}")
                         return True
 
                 try:
@@ -536,7 +536,7 @@ async def _handle_commands(
                     session.add_message("user", prompt)
 
                     # Get response from API with specific model (streaming)
-                    console.print(f"\n[bold cyan]Assistant ({func_label}):[/bold cyan]", end=" ")
+                    console.print(f"\n[bold cyan]Assistant ({strategy_label}):[/bold cyan]", end=" ")
 
                     response_text = ""
                     async for token in client.chat_stream(
@@ -561,12 +561,12 @@ async def _handle_commands(
                     if response_text and not cancel_token.is_cancelled:
                         session.add_message("assistant", response_text)
 
-                    history_manager.add_entry(f"Asked {func_label}: {prompt[:50]}...", "query")
+                    history_manager.add_entry(f"Asked {strategy_label}: {prompt[:50]}...", "query")
                 except Exception as e:
                     logger.exception("Error in /ask command")
                     console.print(f"\n[red]Error:[/red] {e}")
             else:
-                console.print("[red]Usage: /ask <function|model=MODEL> <prompt>[/red]")
+                console.print("[red]Usage: /ask <strategy|model=MODEL> <prompt>[/red]")
 
     else:
         console.print(f"[red]Unknown command: {command}[/red]")
