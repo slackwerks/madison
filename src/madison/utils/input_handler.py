@@ -135,6 +135,10 @@ class MadisonPrompt:
             if user_input is None:
                 raise InterruptedError("Prompt exited")
 
+            # Filter out incomplete escape sequences that leak from terminal events
+            # (e.g., mouse focus events that appear as '[' or 'I')
+            user_input = self._filter_escape_sequences(user_input)
+
             # Show bottom bar with commands
             if show_commands:
                 print("─" * TERM_WIDTH)
@@ -153,6 +157,34 @@ class MadisonPrompt:
         except Exception as e:
             logger.debug(f"Error in prompt: {e}")
             raise
+
+    @staticmethod
+    def _filter_escape_sequences(text: str) -> str:
+        """Filter out incomplete escape sequences that leak from terminal events.
+
+        Terminal focus/mouse events can send incomplete escape sequences like:
+        - ESC [ (incomplete SGR sequence)
+        - ESC I (focus in event)
+        - ESC O (SS3 sequence)
+        These appear as bare '[', 'I', 'O' characters in input.
+
+        Args:
+            text: Input text potentially containing escape sequence artifacts
+
+        Returns:
+            Cleaned text with escape sequence artifacts removed
+        """
+        # If the input is just a single escape-like character, filter it
+        cleaned = text.strip()
+
+        # Remove common escape sequence remnants that appear as single characters
+        # These are typically incomplete sequences from terminal events
+        escape_artifacts = {"[", "I", "O", "M", "]"}
+        if cleaned in escape_artifacts:
+            logger.debug(f"Filtered terminal escape artifact: {repr(cleaned)}")
+            return ""
+
+        return text
 
     def prompt_sync(self, prompt_text: str = "> ", show_commands: bool = True) -> Optional[str]:
         """Get input from user synchronously.
@@ -185,6 +217,10 @@ class MadisonPrompt:
             # Check if input is None (happens when Ctrl+Z exits the prompt)
             if user_input is None:
                 raise InterruptedError("Prompt exited")
+
+            # Filter out incomplete escape sequences that leak from terminal events
+            # (e.g., mouse focus events that appear as '[' or 'I')
+            user_input = self._filter_escape_sequences(user_input)
 
             # Show bottom bar with commands
             if show_commands:
