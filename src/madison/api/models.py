@@ -61,11 +61,22 @@ class ChatCompletionRequest(BaseModel):
 
         extra = "forbid"
 
-    def to_openrouter_dict(self) -> Dict[str, Any]:
-        """Convert to OpenRouter API format."""
+    def to_openrouter_dict(self, message_serializer=None) -> Dict[str, Any]:
+        """Convert to OpenRouter API format.
+
+        Args:
+            message_serializer: Optional callable(message) -> dict for provider-specific serialization
+        """
+        if message_serializer:
+            # Use provider-specific serialization
+            messages = [message_serializer(m) for m in self.messages]
+        else:
+            # Default serialization
+            messages = [m.dict() for m in self.messages]
+
         data = {
             "model": self.model,
-            "messages": [m.dict() for m in self.messages],
+            "messages": messages,
         }
 
         # Add optional fields only if they're set

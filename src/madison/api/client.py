@@ -316,6 +316,7 @@ class OpenRouterClient:
         tools: List[Dict[str, Any]],
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        message_serializer=None,
     ) -> Tuple[str, Optional[List[ToolCall]]]:
         """Call model with tools support (non-streaming).
 
@@ -325,6 +326,7 @@ class OpenRouterClient:
             tools: List of tool definitions
             temperature: Temperature for sampling
             max_tokens: Maximum tokens in response
+            message_serializer: Optional callable(message) -> dict for provider-specific serialization
 
         Returns:
             Tuple of (response_text, tool_calls)
@@ -348,7 +350,7 @@ class OpenRouterClient:
             response = await client.post(
                 f"{self.base_url}/chat/completions",
                 headers=self._get_headers(),
-                json=request.to_openrouter_dict(),
+                json=request.to_openrouter_dict(message_serializer),
             )
 
             if response.status_code != 200:
@@ -455,6 +457,7 @@ class OpenRouterClient:
                 tools=tools,
                 temperature=temperature,
                 max_tokens=max_tokens,
+                message_serializer=tool_caller.serialize_message,
             )
 
             # Add assistant's response to conversation

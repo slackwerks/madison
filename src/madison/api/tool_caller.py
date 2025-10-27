@@ -10,9 +10,12 @@ This module provides an abstraction layer to handle these differences.
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
-from madison.api.models import Message, ToolCall
+from madison.api.models import ToolCall
+
+if TYPE_CHECKING:
+    from madison.api.models import Message
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +46,19 @@ class ToolCaller(ABC):
             - content_data: formatted content for the provider
         """
         pass
+
+    def serialize_message(self, message: "Message") -> Dict[str, Any]:
+        """Serialize a message for the provider API.
+
+        Default implementation just uses model_dump(). Override for provider-specific formatting.
+
+        Args:
+            message: Message to serialize
+
+        Returns:
+            Dict suitable for sending to provider API
+        """
+        return message.model_dump(exclude_none=True)
 
 
 class AnthropicToolCaller(ToolCaller):
@@ -77,6 +93,37 @@ class AnthropicToolCaller(ToolCaller):
                 tool_calls.append(tool_call)
 
         return tool_calls
+
+    def serialize_message(self, message: "Message") -> Dict[str, Any]:
+        """Serialize a message for Anthropic API.
+
+        Anthropic needs tool_use blocks in the content array, not in a separate field.
+        """
+        msg_dict = message.model_dump(exclude_none=True)
+
+        # If there are tool_calls, convert them to content blocks
+        if message.tool_calls:
+            # Start with any existing text content
+            content = []
+            if message.content and isinstance(message.content, str):
+                content.append({"type": "text", "text": message.content})
+            elif isinstance(message.content, list):
+                content = message.content
+
+            # Add tool_use blocks from tool_calls
+            for tool_call in message.tool_calls:
+                content.append({
+                    "type": "tool_use",
+                    "id": tool_call.get("id", ""),
+                    "name": tool_call.get("function", {}).get("name", ""),
+                    "input": tool_call.get("function", {}).get("arguments", {}),
+                })
+
+            msg_dict["content"] = content
+            # Remove the tool_calls field for Anthropic
+            msg_dict.pop("tool_calls", None)
+
+        return msg_dict
 
     def format_tool_results(
         self, tool_results: List[Dict[str, Any]]
