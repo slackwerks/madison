@@ -24,6 +24,8 @@ class ModelRegistry:
         # Anthropic Claude models
         "anthropic/claude-3-opus",
         "anthropic/claude-3-sonnet",
+        "anthropic/claude-3.5-sonnet",
+        "anthropic/claude-sonnet-4",
         "anthropic/claude-3-haiku",
         "anthropic/claude-2",
         "anthropic/claude-2.1",
