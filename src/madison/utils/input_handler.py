@@ -1,5 +1,6 @@
 """Enhanced input handling with prompt_toolkit for ESC support."""
 
+import atexit
 import logging
 import os
 import signal
@@ -11,6 +12,10 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.patch_stdout import patch_stdout
 
 logger = logging.getLogger(__name__)
+
+# ANSI escape sequences for mouse control
+DISABLE_MOUSE_TRACKING = "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l"
+ENABLE_MOUSE_TRACKING = "\x1b[?1000h\x1b[?1002h\x1b[?1003h\x1b[?1006h"
 
 # Terminal width for bar display
 TERM_WIDTH = 80
@@ -32,12 +37,35 @@ class MadisonPrompt:
         self.interrupted = False
         self._setup_key_bindings()
 
+        # Disable mouse tracking in the terminal to prevent escape sequences
+        # when mouse events occur in other windows
+        self._disable_terminal_mouse()
+
+        # Register cleanup on exit
+        atexit.register(self._cleanup_terminal)
+
         # Set up signal handler for suspend (Ctrl+Z)
         try:
             signal.signal(signal.SIGTSTP, signal.SIG_DFL)
         except (ValueError, RuntimeError):
             # Some environments don't support SIGTSTP
             pass
+
+    def _disable_terminal_mouse(self) -> None:
+        """Disable mouse tracking in the terminal."""
+        try:
+            sys.stdout.write(DISABLE_MOUSE_TRACKING)
+            sys.stdout.flush()
+        except Exception as e:
+            logger.debug(f"Could not disable mouse tracking: {e}")
+
+    def _cleanup_terminal(self) -> None:
+        """Clean up terminal state on exit."""
+        try:
+            sys.stdout.write(DISABLE_MOUSE_TRACKING)
+            sys.stdout.flush()
+        except Exception as e:
+            logger.debug(f"Could not clean up terminal: {e}")
 
     def _setup_key_bindings(self) -> None:
         """Setup key bindings for ESC and Ctrl+Z.
