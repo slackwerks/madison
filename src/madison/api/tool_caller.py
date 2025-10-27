@@ -159,14 +159,19 @@ class AnthropicToolCaller(ToolCaller):
         """Format tool results as Anthropic content blocks.
 
         Anthropic expects tool_result blocks in the content array of a user message.
+        The content field of tool_result must be an array of content blocks, not a string.
         """
         # Convert to Anthropic's tool_result format
         anthropic_results = []
         for result in tool_results:
+            content_text = result.get("content", "")
+            # Wrap string content in a text content block
+            content_blocks = [{"type": "text", "text": content_text}] if content_text else []
+
             anthropic_results.append({
                 "type": "tool_result",
                 "tool_use_id": result.get("tool_use_id", ""),
-                "content": result.get("content", ""),
+                "content": content_blocks,
             })
 
         return "user", "blocks", anthropic_results
