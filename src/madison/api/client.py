@@ -373,10 +373,16 @@ class OpenRouterClient:
             # Extract text response
             response_text = message.get("content", "")
 
+            logger.debug(f"call_with_tools response: finish_reason={finish_reason}, response_text={repr(response_text)}, message keys={list(message.keys())}")
+
             # Extract tool calls if present
             tool_calls = None
             if finish_reason == "tool_calls" and "tool_calls" in message:
+                logger.debug(f"  Detected tool_calls finish reason")
                 tool_calls = self._parse_tool_calls(message["tool_calls"])
+                logger.debug(f"  Parsed {len(tool_calls) if tool_calls else 0} tool calls")
+            else:
+                logger.debug(f"  No tool calls detected (finish_reason={finish_reason}, has tool_calls={('tool_calls' in message)})")
 
             return response_text, tool_calls
 
