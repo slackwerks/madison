@@ -284,6 +284,23 @@ mypy madison
 - Configuration wizard (`madison config setup`)
 - `/sessions` command to list saved conversations
 
+### ✅ Phase 4 - Agent Tool Calling (Complete)
+- **Structured tool calling** instead of regex parsing
+- **Multi-turn conversations** with automatic tool execution
+- **Agent-based intent processing** with `Agent.process_intent()`
+- **Tool executor** mapping calls to file operations, command execution, and web search
+- **Provider-agnostic** using pure OpenAI format for OpenRouter
+- **Permission system integration** with user prompting
+- **Multi-step workflows** - agents can chain tool calls together
+- **Tested and verified** with real tool execution (mkdir, ls, etc.)
+
+**Key Improvements:**
+- Model-generated structured tool calls (deterministic)
+- Support for multi-step workflows where model understands results
+- Robust error handling and validation
+- Zero regex parsing fragility
+- Works across all OpenRouter-compatible models
+
 ## License
 
 MIT
