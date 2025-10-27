@@ -8,12 +8,13 @@ from pydantic import BaseModel, Field
 class Message(BaseModel):
     """Chat message model."""
 
-    role: str = Field(..., description="Message role: 'user', 'assistant', or 'system'")
+    role: str = Field(..., description="Message role: 'user', 'assistant', 'system', or 'tool'")
     content: Optional[Union[str, List[Dict[str, Any]]]] = Field(
         default=None,
         description="Message content (string for text, list of dicts for tool results)"
     )
     tool_calls: Optional[List[Dict[str, Any]]] = Field(default=None, description="Tool calls made by assistant")
+    tool_call_id: Optional[str] = Field(default=None, description="Tool call ID (for 'tool' role messages in OpenAI format)")
 
 
 class ToolCall(BaseModel):

@@ -8,7 +8,6 @@ from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Tuple
 import httpx
 
 from madison.api.models import ChatCompletionRequest, ChatCompletionResponse, Message, ToolCall
-from madison.api.tool_caller import get_tool_caller
 from madison.exceptions import APIError
 
 logger = logging.getLogger(__name__)
@@ -445,9 +444,9 @@ class OpenRouterClient:
         Raises:
             APIError: If API calls fail
         """
-        # Get provider-specific tool caller
-        tool_caller = get_tool_caller(model)
-        logger.info(f"Using {tool_caller.__class__.__name__} for tool calling with {model}")
+        # For OpenRouter, we use OpenAI format exclusively.
+        # OpenRouter handles provider-specific conversion internally.
+        logger.info(f"Starting tool calling loop for model: {model}")
 
         messages: List[Message] = [
             Message(role="user", content=initial_message)
@@ -503,24 +502,15 @@ class OpenRouterClient:
                         "content": f"Error: {str(e)}",
                     })
 
-            # Format tool results using provider-specific handler
-            result_role, content_type, formatted_results = tool_caller.format_tool_results(
-                tool_results
-            )
-
-            # Add tool results to conversation (format depends on provider)
-            if content_type == "blocks":
-                # Anthropic: tool results as content blocks
-                tool_result_message = Message(role=result_role, content=formatted_results)
+            # Format tool results in OpenAI format for OpenRouter
+            # (OpenRouter will convert to provider-specific format as needed)
+            for result in tool_results:
+                tool_result_message = Message(
+                    role="tool",
+                    tool_call_id=result.get("tool_use_id", ""),
+                    content=result.get("content", "")
+                )
                 messages.append(tool_result_message)
-            elif content_type == "messages":
-                # OpenAI: tool results as separate messages
-                for tool_msg in formatted_results:
-                    messages.append(
-                        Message(role=tool_msg["role"], content=tool_msg["content"])
-                    )
-            else:
-                logger.error(f"Unknown content type: {content_type}")
 
         logger.warning(f"Tool calling loop exceeded max iterations ({max_iterations})")
         return "Max iterations reached"
