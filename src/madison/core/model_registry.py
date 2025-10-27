@@ -65,8 +65,7 @@ class ModelRegistry:
         "huggingface/meta-llama/llama-2-70b",  # Base versions without chat tuning
         "huggingface/meta-llama/llama-2-13b",
         "huggingface/mistral-7b",
-        # Add models here if you find they don't support tools on OpenRouter:
-        # "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
+        "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",  # No tool support on OpenRouter
     }
 
     @classmethod
