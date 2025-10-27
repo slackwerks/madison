@@ -18,15 +18,18 @@ class PlanParser:
         r"`([^`]+)`",  # Match anything in backticks
     ]
 
-    # File path patterns - be more specific to avoid false positives
+    # File path patterns - be specific to avoid false positives
+    # Require backticks for most patterns, or specific keywords for non-backtick matches
     READ_PATTERNS = [
-        r"read(?:\s+file)?:?\s*`([^`]+)`",  # read: `path`
-        r"read(?:\s+file)?:?\s+([/\w\.\-]+)",  # read: /path/to/file
+        r"read(?:\s+file)?:?\s*`([^`]+)`",  # read: `path` (backtick)
+        r"read(?:\s+file):?\s+([/\w\.\-]+)",  # read file: /path/to/file (requires "file" keyword)
     ]
 
     WRITE_PATTERNS = [
-        r"write(?:\s+file)?:?\s*`([^`]+)`",  # write: `path`
-        r"(?:write|create)(?:\s+file)?:?\s+([/\w\.\-]+)",  # write/create: /path/to/file
+        r"write(?:\s+file)?:?\s*`([^`]+)`",  # write: `path` (backtick)
+        r"create(?:\s+(?:file|directory))?:?\s*`([^`]+)`",  # create: `path` (backtick)
+        r"write\s+(?:file)?:?\s+([/\w\.\-]+)",  # write file: /path (requires "write file")
+        r"create\s+(?:file|directory):?\s+([/\w\.\-]+)",  # create file/directory: name (requires keyword)
     ]
 
     SEARCH_PATTERNS = [
@@ -109,14 +112,30 @@ class PlanParser:
                 file_path = match.group(1).strip()
                 if not file_path or file_path in seen_writes:
                     continue
-                seen_writes.add(file_path)
-                actions.append(
-                    PlanAction(
-                        type=ActionType.WRITE,
-                        file_path=file_path,
-                        description=f"Write file: {file_path}",
+
+                # Skip common English words that aren't file paths
+                # (e.g., "the", "a", "an", "it", "is", "was", etc.)
+                common_words = {
+                    "the", "a", "an", "and", "or", "but", "in", "on", "at",
+                    "to", "for", "is", "are", "was", "were", "be", "been",
+                    "being", "have", "has", "had", "do", "does", "did",
+                    "it", "its", "this", "that", "these", "those", "you",
+                    "he", "she", "we", "they", "what", "which", "who",
+                }
+                if file_path.lower() in common_words:
+                    continue
+
+                # Only add if looks like a file path (contains /, ., or starts with alphanumeric)
+                # and isn't just a single common word
+                if "/" in file_path or "." in file_path or file_path[0].isalnum():
+                    seen_writes.add(file_path)
+                    actions.append(
+                        PlanAction(
+                            type=ActionType.WRITE,
+                            file_path=file_path,
+                            description=f"Write file: {file_path}",
+                        )
                     )
-                )
 
         # Look for searches
         seen_searches = set()
