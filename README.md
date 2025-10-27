@@ -81,6 +81,15 @@ Commands available in chat:
 - `/model-list <search_term>` - Search available OpenRouter models (e.g., `/model-list gpt` or `/model-list claude`)
 - `/model-list series=<series>` - List models by series (e.g., `/model-list series=gpt` or `/model-list series=claude`)
 
+**Agent Management:**
+- `/agent` or `/agent list` - List all available agents
+- `/agent list <category>` - List agents in a specific category (e.g., `/agent list analysis`)
+- `/agent templates` - Show available agent templates
+- `/agent create` - Interactive wizard to create a custom agent
+- `/agent use <category> <name>` - Switch to a specific agent (e.g., `/agent use analysis Code-Reviewer`)
+- `/agent view <category> <name>` - View details of a specific agent
+- `/agent delete <category> <name>` - Delete a custom agent
+
 **File Operations:**
 - `/read <filepath>` - Read and display a file
 - `/write <filepath>` - Write content to a file
@@ -168,6 +177,108 @@ models:
 - **Easy experimentation** - Swap models without changing commands
 - **Cost optimization** - Use cheaper models for simple tasks, expensive ones for complex reasoning
 - **Future-proof** - Ready for agent integration where agents can override these strategies
+
+## Agent Management
+
+Madison supports creating and using custom agents - specialized AI personas with custom prompts, model preferences, and tool restrictions.
+
+### Built-in Agent Templates
+
+Madison comes with 5 built-in agent templates covering common use cases:
+
+1. **Code Reviewer** (analysis) - Reviews code for quality, security, and best practices
+2. **Technical Writer** (writing) - Creates technical documentation and API documentation
+3. **Security Auditor** (analysis) - Audits code and systems for security vulnerabilities
+4. **Debugging Assistant** (development) - Helps debug code issues and solve programming problems
+5. **Documentation Improver** (writing) - Improves existing documentation for clarity and completeness
+6. **Feature Planner** (development) - Helps plan features and break down complex work
+
+### Creating Custom Agents
+
+```bash
+# Start the interactive agent creation wizard
+/agent create
+
+# The wizard will guide you through:
+# 1. Choose starting point (blank or template)
+# 2. Enter agent name, category, and description
+# 3. Set optional model, temperature, and max_tokens
+# 4. Specify which tools the agent can use (optional)
+# 5. Choose storage scope (user ~/.madison/agents or project ./.madison/agents)
+# 6. Enter or edit the system prompt
+```
+
+### Using Agents
+
+```bash
+# List all available agents
+/agent
+
+# List agents in a specific category
+/agent list writing
+
+# View details of an agent
+/agent view analysis "Code-Reviewer"
+
+# Switch to an agent
+/agent use analysis "Code-Reviewer"
+
+# Once an agent is active, all subsequent requests use that agent's:
+# - Custom system prompt
+# - Model preference (if specified)
+# - Temperature and max_tokens settings (if specified)
+# - Restricted tool set (if specified)
+
+# Clear the active agent and return to default behavior
+/agent use default default  # Or just restart the session
+```
+
+### Agent Storage
+
+- **User scope**: Agents stored in `~/.madison/agents/` are available globally
+- **Project scope**: Agents stored in `./.madison/agents/` are only available in that project
+- **File format**: Agents are stored as markdown files with YAML frontmatter for easy editing
+
+Example agent file structure:
+```yaml
+---
+name: My Custom Agent
+category: analysis
+description: Does custom analysis
+version: 1.0
+model: claude-opus
+temperature: 0.8
+max_tokens: 2000
+tools:
+  - read_file
+  - search_web
+---
+
+You are a specialized analyst...
+[Rest of the system prompt]
+```
+
+### Agent Features
+
+**Custom Models**: Agents can specify a different model than the default:
+```bash
+/agent create
+# Choose "2. Agent from template"
+# Customize the model field to use a specific model
+```
+
+**Tool Restrictions**: Agents can be restricted to specific tools:
+```bash
+# During creation, specify tools as comma-separated list
+# Example: read_file,search_web,execute_command
+# Leave blank to allow all tools
+```
+
+**Temperature & Max Tokens**: Fine-tune model behavior per agent:
+```bash
+# Set custom temperature for creative agents (0.0-2.0)
+# Set custom max_tokens for concise or verbose responses
+```
 
 ## Project Scope and Security
 
@@ -300,6 +411,27 @@ mypy madison
 - Robust error handling and validation
 - Zero regex parsing fragility
 - Works across all OpenRouter-compatible models
+
+### ✅ Phase 5 - Agent Management System (Complete)
+- **Agent Definitions** - `AgentDefinition` dataclass for structured agent storage
+- **Agent Manager** - CRUD operations for creating, reading, updating, deleting agents
+- **YAML Frontmatter** - Agent metadata and system prompts stored as markdown files
+- **Built-in Templates** - 5 pre-configured agent templates (Code Reviewer, Technical Writer, Security Auditor, Debugging Assistant, Documentation Improver, Feature Planner)
+- **Interactive Wizard** - `/agent create` command with template selection and configuration
+- **Agent Listing** - `/agent list` with category filtering and details view
+- **Agent Switching** - `/agent use` to load agents with custom prompt, model, temperature, max_tokens, and tools
+- **Scope Management** - User-global or project-local agent storage
+- **Tool Restrictions** - Agents can specify allowed tools to limit API capabilities
+- **Model Override** - Agents can specify custom models different from default
+- **Parameter Tuning** - Per-agent temperature and max_tokens settings
+
+**Key Features:**
+- Agent system integrated with existing `Agent` class for seamless tool calling
+- Agents customize model selection, temperature, max_tokens, and tool access
+- User and project scopes for agent storage
+- Human-readable YAML frontmatter format for easy editing
+- Full CRUD CLI support with intuitive commands
+- Interactive creation wizard with template support
 
 ## License
 

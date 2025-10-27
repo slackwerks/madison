@@ -1,7 +1,7 @@
 """Agent for planning and executing user intents."""
 
 import logging
-from typing import Optional, Tuple
+from typing import Optional, Tuple, TYPE_CHECKING
 
 from rich.console import Console
 
@@ -10,6 +10,9 @@ from madison.core.config import Config
 from madison.core.permissions import PermissionManager
 from madison.core.tool_executor import ToolExecutor
 from madison.core.tools import get_tools_as_dicts
+
+if TYPE_CHECKING:
+    from madison.core.agent_registry import AgentDefinition
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -29,18 +32,40 @@ class Agent:
         self.client = client
         self.permission_manager = PermissionManager()
         self.tool_executor = ToolExecutor()
+        self.active_agent: Optional["AgentDefinition"] = None
+
+    def load_agent(self, agent_definition: "AgentDefinition") -> None:
+        """Load a saved agent definition to customize behavior.
+
+        Args:
+            agent_definition: The agent definition to load
+        """
+        self.active_agent = agent_definition
+        logger.info(f"Loaded agent: {agent_definition.name}")
+
+    def clear_agent(self) -> None:
+        """Clear the active agent and return to default behavior."""
+        if self.active_agent:
+            logger.info(f"Cleared agent: {self.active_agent.name}")
+            self.active_agent = None
 
     def _get_tool_model(self) -> str:
         """Get the model to use for tool execution.
 
         Falls back logic:
-        1. If a 'tools' task type model is configured and supports tools, use it
-        2. If default model supports tools, use it
-        3. Otherwise use the tools model anyway (may fail, but user configured it)
+        1. If active agent has a custom model, use it
+        2. If a 'tools' task type model is configured and supports tools, use it
+        3. If default model supports tools, use it
+        4. Otherwise use the tools model anyway (may fail, but user configured it)
 
         Returns:
             str: Model identifier to use for tool execution
         """
+        # Check if active agent has a custom model
+        if self.active_agent and self.active_agent.model:
+            logger.debug(f"Using agent-specific model: {self.active_agent.model}")
+            return self.active_agent.model
+
         default_model = self.config.default_model
         default_supports_tools = self.config.model_supports_tools(default_model)
 
@@ -76,10 +101,30 @@ class Agent:
         """
         try:
             # Get available tools
-            tools = get_tools_as_dicts()
+            all_tools = get_tools_as_dicts()
+
+            # Filter tools if agent specifies a restricted tool list
+            if self.active_agent and self.active_agent.tools:
+                # Create a mapping of tool names for quick lookup
+                available_tool_names = {tool["function"]["name"] for tool in all_tools}
+                agent_tool_names = set(self.active_agent.tools)
+
+                # Filter to only tools the agent is allowed to use
+                tools = [
+                    tool for tool in all_tools
+                    if tool["function"]["name"] in agent_tool_names
+                    and tool["function"]["name"] in available_tool_names
+                ]
+                logger.debug(f"Agent restricted tools to: {agent_tool_names}")
+            else:
+                tools = all_tools
 
             # Get the appropriate model for tool execution
             tool_model = self._get_tool_model()
+
+            # Determine temperature and max_tokens (use agent's if set, otherwise config)
+            temperature = self.active_agent.temperature if (self.active_agent and self.active_agent.temperature is not None) else self.config.temperature
+            max_tokens = self.active_agent.max_tokens if (self.active_agent and self.active_agent.max_tokens) else self.config.max_tokens
 
             # Use tool calling loop to process intent
             # Pass the async execute method directly - the client handles both sync and async callbacks
@@ -88,8 +133,8 @@ class Agent:
                 model=tool_model,
                 tools=tools,
                 tool_executor=self.tool_executor.execute,
-                temperature=self.config.temperature,
-                max_tokens=self.config.max_tokens,
+                temperature=temperature,
+                max_tokens=max_tokens,
             )
 
             # Check if any actual work was done (vs just conversation)

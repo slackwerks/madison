@@ -14,6 +14,8 @@ from rich.syntax import Syntax
 from madison.api.client import OpenRouterClient
 from madison.api.models import Message
 from madison.core.agent import Agent
+from madison.core.agent_registry import AgentManager
+from madison.core.agent_commands import handle_agent_command
 from madison.core.config import Config
 from madison.core.history import HistoryManager
 from madison.core.session import Session
@@ -119,7 +121,7 @@ async def _repl_loop(
             f"[bold]Madison[/bold] - OpenRouter CLI\n"
             f"Model: {config.default_model}\n\n"
             f"Commands: [cyan]/read[/cyan], [cyan]/write[/cyan], [cyan]/exec[/cyan], "
-            f"[cyan]/search[/cyan], [cyan]/ask[/cyan], [cyan]/clear[/cyan], [cyan]/history[/cyan], "
+            f"[cyan]/search[/cyan], [cyan]/ask[/cyan], [cyan]/agent[/cyan], [cyan]/clear[/cyan], [cyan]/history[/cyan], "
             f"[cyan]/save[/cyan], [cyan]/load[/cyan], [cyan]/sessions[/cyan], "
             f"[cyan]/model[/cyan], [cyan]/model-list[/cyan], [cyan]/system[/cyan], [cyan]/quit[/cyan] ([cyan]/exit[/cyan])",
             expand=False,
@@ -132,6 +134,7 @@ async def _repl_loop(
     session_manager = SessionManager()
     history_manager = HistoryManager()
     prompt = MadisonPrompt()
+    agent_manager = AgentManager()
 
     async with OpenRouterClient(
         config.api_key,
@@ -166,7 +169,7 @@ async def _repl_loop(
 
                 # Handle special commands
                 if await _handle_commands(
-                    user_input, session, file_ops, config, client, model, cmd_executor, searcher, cancel_token, session_manager, history_manager, agent
+                    user_input, session, file_ops, config, client, model, cmd_executor, searcher, cancel_token, session_manager, history_manager, agent, agent_manager, prompt
                 ):
                     continue
 
@@ -195,6 +198,8 @@ async def _handle_commands(
     session_manager: SessionManager,
     history_manager: HistoryManager,
     agent: Agent,
+    agent_manager: AgentManager,
+    prompt: MadisonPrompt,
 ) -> bool:
     """Handle special commands.
 
@@ -568,10 +573,16 @@ async def _handle_commands(
             else:
                 console.print("[red]Usage: /ask <strategy|model=MODEL> <prompt>[/red]")
 
+    elif command == "/agent":
+        selected_agent = await handle_agent_command(args, agent_manager, prompt)
+        if selected_agent:
+            # Load the agent into the current Agent instance
+            agent.load_agent(selected_agent)
+
     else:
         console.print(f"[red]Unknown command: {command}[/red]")
         console.print(
-            "[yellow]Available commands: /read, /write, /exec, /search, /ask, /clear, /retry, /history, /model, /model-list, /system, /save, /load, /sessions, /quit, /exit[/yellow]"
+            "[yellow]Available commands: /read, /write, /exec, /search, /ask, /agent, /clear, /retry, /history, /model, /model-list, /system, /save, /load, /sessions, /quit, /exit[/yellow]"
         )
 
     return True
