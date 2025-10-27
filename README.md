@@ -303,8 +303,18 @@ mypy madison
 
 ## License
 
-MIT
+**Slackwerks Software License** - "Steal Shamelessly and Give No Credit" Edition
+
+Madison is released under the Slackwerks License. In short:
+
+- ✅ Do whatever you want with this code (copy, modify, sell, etc.)
+- ✅ No attribution required (but appreciated!)
+- ✅ No warranty whatsoever
+- ✅ Use it to get a promotion, impress your boss, build a startup
+- ✅ We really don't care (in a friendly way)
+
+For the full license terms, see [LICENSE.md](LICENSE.md).
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit issues or pull requests.
+Contributions are welcome! Please feel free to submit issues or pull requests. Under the Slackwerks License, you can also fork this code and claim it as your own (though we'd appreciate if you didn't 😄).
