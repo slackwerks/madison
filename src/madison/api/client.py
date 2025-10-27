@@ -3,11 +3,11 @@
 import asyncio
 import json
 import logging
-from typing import AsyncIterator, Callable, List, Optional
+from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Tuple
 
 import httpx
 
-from madison.api.models import ChatCompletionRequest, ChatCompletionResponse, Message
+from madison.api.models import ChatCompletionRequest, ChatCompletionResponse, Message, ToolCall
 from madison.exceptions import APIError
 
 logger = logging.getLogger(__name__)
@@ -307,6 +307,191 @@ class OpenRouterClient:
         if last_error:
             raise last_error
         raise APIError("Unknown error in chat_stream")
+
+    async def call_with_tools(
+        self,
+        messages: List[Message],
+        model: str,
+        tools: List[Dict[str, Any]],
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> Tuple[str, Optional[List[ToolCall]]]:
+        """Call model with tools support (non-streaming).
+
+        Args:
+            messages: List of messages
+            model: Model name
+            tools: List of tool definitions
+            temperature: Temperature for sampling
+            max_tokens: Maximum tokens in response
+
+        Returns:
+            Tuple of (response_text, tool_calls)
+            - response_text: Assistant's text response (may be empty if tool called)
+            - tool_calls: List of ToolCall objects if tools were called, None otherwise
+
+        Raises:
+            APIError: If the API request fails
+        """
+        request = ChatCompletionRequest(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            tools=tools,
+            stream=False,  # Non-streaming for tool calls
+        )
+
+        try:
+            client = await self._ensure_client()
+            response = await client.post(
+                f"{self.base_url}/chat/completions",
+                headers=self._get_headers(),
+                json=request.to_openrouter_dict(),
+            )
+
+            if response.status_code != 200:
+                error_msg, provider_info = self._extract_error_details(
+                    response.text, response.status_code
+                )
+                logger.error(error_msg)
+                if provider_info:
+                    logger.error(f"Provider info: {provider_info}")
+                raise APIError(error_msg)
+
+            data = response.json()
+            if "choices" not in data or not data["choices"]:
+                raise APIError("No choices in response")
+
+            choice = data["choices"][0]
+            message = choice.get("message", {})
+            finish_reason = choice.get("finish_reason")
+
+            # Extract text response
+            response_text = message.get("content", "")
+
+            # Extract tool calls if present
+            tool_calls = None
+            if finish_reason == "tool_calls" and "tool_calls" in message:
+                tool_calls = self._parse_tool_calls(message["tool_calls"])
+
+            return response_text, tool_calls
+
+        except APIError:
+            raise
+        except Exception as e:
+            logger.error(f"Tool calling request failed: {e}")
+            raise APIError(f"Tool calling request failed: {e}") from e
+
+    def _parse_tool_calls(self, tool_calls_data: List[Dict[str, Any]]) -> List[ToolCall]:
+        """Parse tool call data from API response.
+
+        Args:
+            tool_calls_data: Raw tool call data from API
+
+        Returns:
+            List of ToolCall objects
+        """
+        tool_calls = []
+        for call_data in tool_calls_data:
+            try:
+                tool_call = ToolCall(**call_data)
+                tool_calls.append(tool_call)
+            except Exception as e:
+                logger.warning(f"Failed to parse tool call: {e}")
+                continue
+        return tool_calls
+
+    async def call_with_tool_loop(
+        self,
+        initial_message: str,
+        model: str,
+        tools: List[Dict[str, Any]],
+        tool_executor: Callable[[str, Dict[str, Any]], Any],
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        max_iterations: int = 10,
+    ) -> str:
+        """Execute a multi-turn tool calling conversation.
+
+        This implements the standard tool calling loop:
+        1. Send user message with available tools
+        2. Get response with potential tool calls
+        3. Execute tools locally
+        4. Send tool results back to model
+        5. Repeat until model returns final response
+
+        Args:
+            initial_message: Initial user message/intent
+            model: Model name
+            tools: List of tool definitions
+            tool_executor: Function(tool_name, arguments) -> result
+            temperature: Temperature for sampling
+            max_tokens: Maximum tokens per response
+            max_iterations: Maximum conversation turns (safety limit)
+
+        Returns:
+            Final response text from model
+
+        Raises:
+            APIError: If API calls fail
+        """
+        messages: List[Message] = [
+            Message(role="user", content=initial_message)
+        ]
+
+        for iteration in range(max_iterations):
+            logger.debug(f"Tool calling iteration {iteration + 1}/{max_iterations}")
+
+            # Get response with potential tool calls
+            response_text, tool_calls = await self.call_with_tools(
+                messages=messages,
+                model=model,
+                tools=tools,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+
+            # Add assistant's response to conversation
+            assistant_message = Message(
+                role="assistant",
+                content=response_text if response_text else None,
+                tool_calls=[tc.dict() for tc in tool_calls] if tool_calls else None,
+            )
+            messages.append(assistant_message)
+
+            # If no tool calls, we're done
+            if not tool_calls:
+                return response_text
+
+            # Execute tool calls and collect results
+            tool_results = []
+            for tool_call in tool_calls:
+                try:
+                    logger.info(f"Executing tool: {tool_call.name}")
+                    result = tool_executor(tool_call.name, tool_call.arguments)
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": tool_call.id,
+                        "content": str(result),
+                    })
+                except Exception as e:
+                    logger.error(f"Tool execution failed: {e}")
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": tool_call.id,
+                        "content": f"Error: {str(e)}",
+                    })
+
+            # Add tool results to conversation
+            tool_result_message = Message(
+                role="user",
+                content=json.dumps(tool_results),
+            )
+            messages.append(tool_result_message)
+
+        logger.warning(f"Tool calling loop exceeded max iterations ({max_iterations})")
+        return "Max iterations reached"
 
     async def list_models(self) -> List[dict]:
         """List available models.
