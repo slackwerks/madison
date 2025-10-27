@@ -9,7 +9,31 @@ class Message(BaseModel):
     """Chat message model."""
 
     role: str = Field(..., description="Message role: 'user', 'assistant', or 'system'")
-    content: str = Field(..., description="Message content")
+    content: Optional[str] = Field(default=None, description="Message content")
+    tool_calls: Optional[List[Dict[str, Any]]] = Field(default=None, description="Tool calls made by assistant")
+
+
+class ToolCall(BaseModel):
+    """Tool call from model."""
+
+    id: str = Field(..., description="Tool call ID")
+    type: str = Field(default="function", description="Tool type (always 'function')")
+    function: Dict[str, Any] = Field(..., description="Function call details")
+
+    @property
+    def name(self) -> str:
+        """Get function name."""
+        return self.function.get("name", "")
+
+    @property
+    def arguments(self) -> Dict[str, Any]:
+        """Get function arguments as dict."""
+        import json
+
+        args_str = self.function.get("arguments", "{}")
+        if isinstance(args_str, str):
+            return json.loads(args_str)
+        return args_str
 
 
 class ChatCompletionRequest(BaseModel):
@@ -27,6 +51,7 @@ class ChatCompletionRequest(BaseModel):
     min_p: Optional[float] = Field(default=None)
     stop: Optional[List[str]] = Field(default=None)
     stream: Optional[bool] = Field(default=False)
+    tools: Optional[List[Dict[str, Any]]] = Field(default=None, description="Tools available for tool calling")
 
     class Config:
         """Pydantic config."""
@@ -52,6 +77,7 @@ class ChatCompletionRequest(BaseModel):
             "min_p",
             "stop",
             "stream",
+            "tools",
         ]
 
         for field in optional_fields:
