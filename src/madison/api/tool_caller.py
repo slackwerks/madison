@@ -99,19 +99,28 @@ class AnthropicToolCaller(ToolCaller):
 
         Anthropic needs tool_use blocks in the content array, not in a separate field.
         """
-        msg_dict = message.model_dump(exclude_none=True)
+        # Get basic message dict without tool_calls
+        msg_dict = message.model_dump(exclude={"tool_calls"}, exclude_none=True)
 
-        # If there are tool_calls, convert them to content blocks
-        if message.tool_calls:
-            # Start with any existing text content
+        logger.debug(f"AnthropicToolCaller.serialize_message: role={message.role}, has_tool_calls={bool(message.tool_calls)}")
+
+        # Convert tool_calls to content blocks for Anthropic
+        if message.tool_calls and len(message.tool_calls) > 0:
             content = []
+
+            # Add any existing text content, but skip tool_use blocks (we'll recreate from tool_calls)
             if message.content and isinstance(message.content, str):
                 content.append({"type": "text", "text": message.content})
             elif isinstance(message.content, list):
-                content = message.content
+                # Filter out tool_use blocks from existing content (we'll recreate them from tool_calls)
+                # Keep only text blocks and other non-tool_use blocks
+                for block in message.content:
+                    if block.get("type") != "tool_use":
+                        content.append(block)
 
             # Add tool_use blocks from tool_calls
             for tool_call in message.tool_calls:
+                logger.debug(f"  Adding tool_call: id={tool_call.get('id')}, name={tool_call.get('function', {}).get('name')}")
                 content.append({
                     "type": "tool_use",
                     "id": tool_call.get("id", ""),
@@ -120,8 +129,11 @@ class AnthropicToolCaller(ToolCaller):
                 })
 
             msg_dict["content"] = content
-            # Remove the tool_calls field for Anthropic
-            msg_dict.pop("tool_calls", None)
+            logger.debug(f"  Final content has {len(content)} blocks")
+        elif message.content is None and message.role == "assistant":
+            # Assistant message with no content and no tool calls - add empty text to satisfy API
+            logger.debug("  Assistant message with no content - adding empty text block")
+            msg_dict["content"] = [{"type": "text", "text": ""}]
 
         return msg_dict
 

@@ -67,12 +67,16 @@ class ChatCompletionRequest(BaseModel):
         Args:
             message_serializer: Optional callable(message) -> dict for provider-specific serialization
         """
+        import json
+        import logging
+        logger = logging.getLogger(__name__)
+
         if message_serializer:
             # Use provider-specific serialization
             messages = [message_serializer(m) for m in self.messages]
         else:
             # Default serialization
-            messages = [m.dict() for m in self.messages]
+            messages = [m.model_dump(exclude_none=True) for m in self.messages]
 
         data = {
             "model": self.model,
@@ -98,6 +102,21 @@ class ChatCompletionRequest(BaseModel):
             value = getattr(self, field)
             if value is not None:
                 data[field] = value
+
+        # Debug logging for messages
+        logger.debug(f"to_openrouter_dict: Prepared {len(messages)} messages:")
+        for i, msg in enumerate(messages):
+            content_info = "None"
+            if msg.get("content"):
+                if isinstance(msg["content"], str):
+                    content_info = f"text ({len(msg['content'])} chars)"
+                elif isinstance(msg["content"], list):
+                    content_info = f"blocks ({len(msg['content'])} items)"
+                else:
+                    content_info = f"{type(msg['content']).__name__}"
+            else:
+                content_info = "EMPTY/None"
+            logger.debug(f"  [{i}] role={msg.get('role')}, content={content_info}")
 
         return data
 

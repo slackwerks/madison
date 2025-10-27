@@ -464,7 +464,7 @@ class OpenRouterClient:
             assistant_message = Message(
                 role="assistant",
                 content=response_text if response_text else None,
-                tool_calls=[tc.dict() for tc in tool_calls] if tool_calls else None,
+                tool_calls=[tc.model_dump() for tc in tool_calls] if tool_calls else None,
             )
             messages.append(assistant_message)
 
