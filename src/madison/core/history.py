@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
@@ -11,14 +12,47 @@ from madison.exceptions import MadisonError
 logger = logging.getLogger(__name__)
 
 
+def _get_data_dir() -> Path:
+    """Get XDG data directory for Madison.
+
+    Returns:
+        Path: ~/.local/share/madison or $XDG_DATA_HOME/madison
+    """
+    xdg_data_home = os.getenv("XDG_DATA_HOME")
+    if xdg_data_home:
+        data_dir = Path(xdg_data_home) / "madison"
+    else:
+        data_dir = Path.home() / ".local" / "share" / "madison"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir
+
+
 class HistoryManager:
     """Manage command and chat history with JSON storage."""
 
     def __init__(self):
         """Initialize history manager."""
-        self.history_file = Path.home() / ".madison" / "history.json"
+        self.history_file = _get_data_dir() / "history.json"
         self.history_file.parent.mkdir(parents=True, exist_ok=True)
+        self._migrate_from_old_location()
         self._ensure_history_file()
+
+    @staticmethod
+    def _migrate_from_old_location() -> None:
+        """Migrate history from old ~/.madison location to XDG location."""
+        old_history_file = Path.home() / ".madison" / "history.json"
+        new_history_file = _get_data_dir() / "history.json"
+
+        # Only migrate if old location exists and new doesn't
+        if old_history_file.exists() and not new_history_file.exists():
+            try:
+                with open(old_history_file, "r") as f:
+                    old_data = f.read()
+                with open(new_history_file, "w") as f:
+                    f.write(old_data)
+                logger.info(f"Migrated history from {old_history_file} to {new_history_file}")
+            except Exception as e:
+                logger.warning(f"Could not migrate history: {e}")
 
     def _ensure_history_file(self) -> None:
         """Ensure history file exists."""

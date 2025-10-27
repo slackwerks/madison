@@ -47,8 +47,16 @@ class Config(BaseModel):
 
     @staticmethod
     def config_dir() -> Path:
-        """Get the Madison config directory."""
-        config_dir = Path.home() / ".madison"
+        """Get the Madison config directory (XDG_CONFIG_HOME compliant).
+
+        Returns:
+            Path: ~/.config/madison or $XDG_CONFIG_HOME/madison
+        """
+        xdg_config_home = os.getenv("XDG_CONFIG_HOME")
+        if xdg_config_home:
+            config_dir = Path(xdg_config_home) / "madison"
+        else:
+            config_dir = Path.home() / ".config" / "madison"
         config_dir.mkdir(parents=True, exist_ok=True)
         return config_dir
 
@@ -57,11 +65,37 @@ class Config(BaseModel):
         """Get the Madison config file path."""
         return Config.config_dir() / "config.yaml"
 
+    @staticmethod
+    def _migrate_from_old_location() -> bool:
+        """Migrate config from old ~/.madison location to XDG location.
+
+        Returns:
+            bool: True if migration was performed, False otherwise
+        """
+        old_config_file = Path.home() / ".madison" / "config.yaml"
+        new_config_file = Config.config_file()
+
+        # Only migrate if old location exists and new doesn't
+        if old_config_file.exists() and not new_config_file.exists():
+            try:
+                with open(old_config_file, "r") as f:
+                    old_data = f.read()
+                new_config_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(new_config_file, "w") as f:
+                    f.write(old_data)
+                return True
+            except Exception as e:
+                # Log warning but don't fail - user can manually move file
+                print(f"Warning: Could not migrate config from {old_config_file}: {e}")
+                return False
+        return False
+
     @classmethod
     def load(cls) -> "Config":
         """Load configuration from environment or file.
 
         Priority: Environment variable -> Config file -> Defaults
+        Automatically migrates from old ~/.madison location to XDG ~/.config/madison
 
         Returns:
             Config: The loaded configuration
@@ -69,6 +103,9 @@ class Config(BaseModel):
         Raises:
             ConfigError: If no API key is found
         """
+        # Try migration from old location if needed
+        cls._migrate_from_old_location()
+
         api_key = os.getenv("OPENROUTER_API_KEY")
 
         config_data = {}
@@ -89,7 +126,7 @@ class Config(BaseModel):
         elif "api_key" not in config_data:
             raise ConfigError(
                 "No OpenRouter API key found. Set OPENROUTER_API_KEY environment variable "
-                "or create ~/.madison/config.yaml with your api_key."
+                "or create ~/.config/madison/config.yaml with your api_key."
             )
 
         try:

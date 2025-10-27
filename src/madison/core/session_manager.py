@@ -2,6 +2,8 @@
 
 import json
 import logging
+import os
+import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
@@ -13,13 +15,45 @@ from madison.exceptions import MadisonError
 logger = logging.getLogger(__name__)
 
 
+def _get_data_dir() -> Path:
+    """Get XDG data directory for Madison.
+
+    Returns:
+        Path: ~/.local/share/madison or $XDG_DATA_HOME/madison
+    """
+    xdg_data_home = os.getenv("XDG_DATA_HOME")
+    if xdg_data_home:
+        data_dir = Path(xdg_data_home) / "madison"
+    else:
+        data_dir = Path.home() / ".local" / "share" / "madison"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir
+
+
 class SessionManager:
     """Manage session persistence with JSON storage."""
 
     def __init__(self):
         """Initialize session manager."""
-        self.sessions_dir = Path.home() / ".madison" / "sessions"
+        self.sessions_dir = _get_data_dir() / "sessions"
         self.sessions_dir.mkdir(parents=True, exist_ok=True)
+        self._migrate_from_old_location()
+
+    @staticmethod
+    def _migrate_from_old_location() -> None:
+        """Migrate sessions from old ~/.madison/sessions location to XDG location."""
+        old_sessions_dir = Path.home() / ".madison" / "sessions"
+        new_sessions_dir = _get_data_dir() / "sessions"
+
+        # Only migrate if old location exists and new is empty
+        if old_sessions_dir.exists() and not list(new_sessions_dir.glob("*.json")):
+            try:
+                # Copy all session files
+                for session_file in old_sessions_dir.glob("*.json"):
+                    shutil.copy2(session_file, new_sessions_dir / session_file.name)
+                logger.info(f"Migrated sessions from {old_sessions_dir} to {new_sessions_dir}")
+            except Exception as e:
+                logger.warning(f"Could not migrate sessions: {e}")
 
     def save_session(self, session: Session, name: Optional[str] = None) -> str:
         """Save a session to disk.
