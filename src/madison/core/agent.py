@@ -128,7 +128,7 @@ class Agent:
 
             # Use tool calling loop to process intent
             # Pass the async execute method directly - the client handles both sync and async callbacks
-            response = await self.client.call_with_tool_loop(
+            tool_result = await self.client.call_with_tool_loop(
                 initial_message=user_prompt,
                 model=tool_model,
                 tools=tools,
@@ -137,9 +137,17 @@ class Agent:
                 max_tokens=max_tokens,
             )
 
+            # Build response from tool result (includes metadata if tools were executed)
+            response_text = tool_result.response_text
+
+            # Add tool execution summary (like Claude Code shows tool results)
+            tool_summary = tool_result.format_summary()
+            if tool_summary:
+                response_text += tool_summary
+
             # Check if any actual work was done (vs just conversation)
-            if response and response.strip():
-                return True, response
+            if response_text and response_text.strip():
+                return True, response_text
             else:
                 return False, None
 

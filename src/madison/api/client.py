@@ -7,7 +7,14 @@ from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Tuple
 
 import httpx
 
-from madison.api.models import ChatCompletionRequest, ChatCompletionResponse, Message, ToolCall
+from madison.api.models import (
+    ChatCompletionRequest,
+    ChatCompletionResponse,
+    Message,
+    ToolCall,
+    ToolExecutionResult,
+    ToolLoopResult,
+)
 from madison.exceptions import APIError
 
 logger = logging.getLogger(__name__)
@@ -419,7 +426,7 @@ class OpenRouterClient:
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         max_iterations: int = 10,
-    ) -> str:
+    ) -> ToolLoopResult:
         """Execute a multi-turn tool calling conversation.
 
         This implements the standard tool calling loop:
@@ -439,7 +446,7 @@ class OpenRouterClient:
             max_iterations: Maximum conversation turns (safety limit)
 
         Returns:
-            Final response text from model
+            ToolLoopResult with response text and tool execution metadata
 
         Raises:
             APIError: If API calls fail
@@ -451,6 +458,9 @@ class OpenRouterClient:
         messages: List[Message] = [
             Message(role="user", content=initial_message)
         ]
+
+        # Track all tool executions for metadata
+        all_tool_executions: List[ToolExecutionResult] = []
 
         for iteration in range(max_iterations):
             logger.debug(f"Tool calling iteration {iteration + 1}/{max_iterations}")
@@ -476,7 +486,10 @@ class OpenRouterClient:
 
             # If no tool calls, we're done
             if not tool_calls:
-                return response_text
+                return ToolLoopResult(
+                    response_text=response_text,
+                    tool_executions=all_tool_executions
+                )
 
             # Execute tool calls and collect results
             tool_results = []
@@ -489,18 +502,41 @@ class OpenRouterClient:
                     if asyncio.iscoroutine(result):
                         result = await result
 
+                    result_str = str(result)
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": tool_call.id,
-                        "content": str(result),
+                        "content": result_str,
                     })
+
+                    # Track execution in metadata (include arguments for context)
+                    all_tool_executions.append(
+                        ToolExecutionResult(
+                            tool_name=tool_call.name,
+                            arguments=tool_call.arguments,
+                            success=True,
+                            result=result_str,
+                        )
+                    )
                 except Exception as e:
                     logger.error(f"Tool execution failed: {e}")
+                    error_msg = str(e)
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": tool_call.id,
-                        "content": f"Error: {str(e)}",
+                        "content": f"Error: {error_msg}",
                     })
+
+                    # Track execution in metadata (include arguments for context)
+                    all_tool_executions.append(
+                        ToolExecutionResult(
+                            tool_name=tool_call.name,
+                            arguments=tool_call.arguments,
+                            success=False,
+                            result=f"Error: {error_msg}",
+                            error=error_msg,
+                        )
+                    )
 
             # Format tool results in OpenAI format for OpenRouter
             # (OpenRouter will convert to provider-specific format as needed)
@@ -513,7 +549,10 @@ class OpenRouterClient:
                 messages.append(tool_result_message)
 
         logger.warning(f"Tool calling loop exceeded max iterations ({max_iterations})")
-        return "Max iterations reached"
+        return ToolLoopResult(
+            response_text="Max iterations reached",
+            tool_executions=all_tool_executions
+        )
 
     async def list_models(self) -> List[dict]:
         """List available models.

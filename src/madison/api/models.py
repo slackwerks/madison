@@ -40,6 +40,43 @@ class ToolCall(BaseModel):
         return args_str
 
 
+class ToolExecutionResult(BaseModel):
+    """Result of a single tool execution."""
+
+    tool_name: str = Field(..., description="Name of the tool that was executed")
+    success: bool = Field(default=True, description="Whether tool execution succeeded")
+    arguments: Dict[str, Any] = Field(default_factory=dict, description="Arguments passed to the tool")
+    result: str = Field(..., description="Output/result of the tool execution")
+    error: Optional[str] = Field(default=None, description="Error message if execution failed")
+
+
+class ToolLoopResult(BaseModel):
+    """Result from call_with_tool_loop including text and tool metadata."""
+
+    response_text: str = Field(..., description="Final response text from model")
+    tool_executions: List[ToolExecutionResult] = Field(
+        default_factory=list, description="List of tools that were executed"
+    )
+
+    @property
+    def has_tool_calls(self) -> bool:
+        """Check if any tools were executed."""
+        return len(self.tool_executions) > 0
+
+    def format_summary(self) -> str:
+        """Format tool executions as a readable summary."""
+        if not self.tool_executions:
+            return ""
+
+        summary_lines = ["\n--- Tool Executions ---"]
+        for execution in self.tool_executions:
+            status = "✓" if execution.success else "✗"
+            summary_lines.append(f"{status} {execution.tool_name}")
+            if execution.error:
+                summary_lines.append(f"  Error: {execution.error}")
+        return "\n".join(summary_lines)
+
+
 class ChatCompletionRequest(BaseModel):
     """Chat completion request model."""
 

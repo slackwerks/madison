@@ -33,6 +33,8 @@ class Config(BaseModel):
     max_retries: int = Field(default=3, ge=0, description="Maximum number of retries for failed requests")
     retry_initial_delay: float = Field(default=1.0, ge=0.1, description="Initial delay in seconds before first retry")
     retry_backoff_factor: float = Field(default=2.0, ge=1.0, description="Multiply delay by this factor after each retry")
+    enable_orchestration: bool = Field(default=False, description="Enable multi-model task orchestration for complex requests")
+    show_execution_plan: bool = Field(default=True, description="Show the generated execution plan before running")
 
     class Config:
         """Pydantic config."""
@@ -129,6 +131,10 @@ class Config(BaseModel):
                 "No OpenRouter API key found. Set OPENROUTER_API_KEY environment variable "
                 "or create ~/.config/madison/config.yaml with your api_key."
             )
+
+        # Sync models["default"] to default_model if default_model is not explicitly set
+        if "default_model" not in config_data and "models" in config_data and "default" in config_data["models"]:
+            config_data["default_model"] = config_data["models"]["default"]
 
         try:
             return cls(**config_data)

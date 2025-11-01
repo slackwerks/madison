@@ -18,6 +18,8 @@ from madison.core.agent_registry import AgentManager
 from madison.core.agent_commands import handle_agent_command
 from madison.core.config import Config
 from madison.core.history import HistoryManager
+from madison.core.orchestrator import Orchestrator
+from madison.core.planner import Planner
 from madison.core.session import Session
 from madison.core.session_manager import SessionManager
 from madison.exceptions import (
@@ -541,7 +543,7 @@ async def _handle_commands(
                     session.add_message("user", prompt)
 
                     # Get response from API with specific model (streaming)
-                    console.print(f"\n[bold cyan]Assistant ({strategy_label}):[/bold cyan]", end=" ")
+                    console.print(f"\n[bold cyan]Assistant ({strategy_label} — {specific_model}):[/bold cyan]", end=" ")
 
                     response_text = ""
                     async for token in client.chat_stream(
@@ -664,12 +666,64 @@ async def _handle_chat(
     # Store the prompt for /retry command
     session.last_user_prompt = user_input
 
+    # Try orchestration first if enabled
+    if config.enable_orchestration:
+        try:
+            planner = Planner(config, client)
+
+            # Get recent conversation history for context (last 10 messages, excluding current)
+            # Convert Message objects to dicts for the planner
+            history = session.get_history()[-10:] if session.get_history() else []
+            recent_messages = [{"role": msg.role, "content": msg.content} for msg in history]
+
+            plan = await planner.plan(user_input, conversation_history=recent_messages)
+
+            if plan:
+                # Show the execution plan if configured
+                if config.show_execution_plan:
+                    console.print("\n[bold cyan]Execution Plan:[/bold cyan]")
+                    for task in plan.tasks:
+                        console.print(f"  [cyan]{task.task_id}[/cyan]: {task.description}")
+                        console.print(f"    Model: {task.model}")
+                        if task.depends_on:
+                            console.print(f"    Depends on: {', '.join(task.depends_on)}")
+                    console.print()
+
+                # Execute the plan
+                orchestrator = Orchestrator(config, client, agent.tool_executor)
+                result = await orchestrator.execute(plan)
+
+                # Add to session - include both plan and execution result for context
+                plan_summary = "\n".join([
+                    f"{task.task_id}: {task.description} (model: {task.model})"
+                    for task in plan.tasks
+                ])
+                full_response = f"Execution Plan:\n{plan_summary}\n\nExecution Result:\n{result}"
+
+                session.add_message("user", user_input)
+                session.add_message("assistant", full_response)
+                return
+        except Exception as e:
+            logger.debug(f"Orchestration failed (falling back to agent/chat): {e}")
+            # If orchestration fails, continue with normal flow
+
     # Try to process as agent intent first
     try:
         intent_handled, intent_result = await agent.process_intent(user_input)
         if intent_handled and intent_result:
             # Agent found and executed actions
-            console.print(f"\n[cyan]Agent Execution Result:[/cyan]\n{intent_result}")
+            # Get the model being used for this agent
+            tool_model = agent._get_tool_model()
+            agent_name = agent.active_agent.name if agent.active_agent else "Unknown"
+            agent_category = agent.active_agent.category if agent.active_agent else ""
+
+            # Display agent and model info
+            header = f"[cyan]{agent_name}"
+            if agent_category:
+                header += f" ({agent_category})"
+            header += f" — {tool_model}[/cyan]"
+            console.print(f"\n{header}")
+            console.print(f"[cyan]Agent Execution Result:[/cyan]\n{intent_result}")
             # Add the result to conversation context
             session.add_message("user", user_input)
             session.add_message("assistant", f"Executed plan:\n{intent_result}")
@@ -683,7 +737,23 @@ async def _handle_chat(
 
     # Get response from API (streaming)
     try:
-        console.print("\n[bold cyan]Assistant:[/bold cyan]", end=" ")
+        # Build header with model and agent info if active
+        header = f"[bold cyan]Assistant"
+
+        # Add agent info if one is active
+        if agent.active_agent:
+            agent_name = agent.active_agent.name
+            agent_category = agent.active_agent.category
+            header += f" ({agent_name}"
+            if agent_category:
+                header += f" — {agent_category}"
+            header += ")"
+
+        # Add model info
+        header += f" — {config.default_model}"
+        header += "[/bold cyan]"
+
+        console.print(f"\n{header}", end=" ")
 
         response_text = ""
         async for token in client.chat_stream(
