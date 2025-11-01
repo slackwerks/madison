@@ -172,8 +172,8 @@ When a user asks you to do something:
 
 Available tools:
 - execute_command: Run shell commands (mkdir, ls, etc.)
-- read_file: Read file contents
-- write_file: Write or create files
+- Read(file_path): Read file contents
+- Write(file_path, content): Write or create files
 - search_web: Search for information online
 
 Always use tools to accomplish tasks. Call the appropriate tool(s) with the necessary arguments.

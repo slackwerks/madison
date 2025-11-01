@@ -242,7 +242,7 @@ AGENT_TEMPLATES: Dict[str, AgentDefinition] = {
 
 ## Tools Available
 You can:
-- read_file: Examine source code files
+- Read(file_path): Examine source code files
 - execute_command: Run code analysis tools (linters, security scanners)
 - search_web: Look up best practices and security advisories
 
@@ -278,8 +278,8 @@ When reviewing code, structure your feedback as:
 
 ## Tools Available
 You can:
-- read_file: Read source code to understand functionality
-- write_file: Create or update documentation files
+- Read(file_path): Read source code to understand functionality
+- Write(file_path, content): Create or update documentation files
 - search_web: Look up related documentation or standards
 
 ## Documentation Structure
@@ -323,7 +323,7 @@ When creating documentation, include:
 
 ## Tools Available
 You can:
-- read_file: Examine code and configuration files
+- Read(file_path): Examine code and configuration files
 - execute_command: Run security scanning tools
 - search_web: Look up CVEs and security advisories
 
@@ -367,9 +367,9 @@ Structure findings as:
 
 ## Tools Available
 You can:
-- read_file: Examine source code and logs
+- Read(file_path): Examine source code and logs
 - execute_command: Run debug tools, compile, execute tests
-- write_file: Create test files and minimal reproductions
+- Write(file_path, content): Create test files and minimal reproductions
 
 ## Information Needed
 When helping with debugging, gather:
@@ -410,8 +410,8 @@ When helping with debugging, gather:
 
 ## Tools Available
 You can:
-- read_file: Read current documentation
-- write_file: Write improved versions
+- Read(file_path): Read current documentation
+- Write(file_path, content): Write improved versions
 - search_web: Look up current information
 
 ## Improvement Checklist
@@ -457,9 +457,9 @@ When improving documentation:
 
 ## Tools Available
 You can:
-- read_file: Examine existing code and architecture
+- Read(file_path): Examine existing code and architecture
 - search_web: Look up best practices and libraries
-- write_file: Create planning documents
+- Write(file_path, content): Create planning documents
 
 ## Deliverables
 Create a plan including:
