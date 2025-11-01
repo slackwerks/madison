@@ -78,7 +78,7 @@ EXECUTE_COMMAND_TOOL = Tool(
 READ_FILE_TOOL = Tool(
     function=ToolFunction(
         name="read_file",
-        description="Read the contents of a file in the project directory. Use for: viewing files, reading configuration, checking contents, etc.",
+        description="Read(file_path): Read the contents of a file in the project directory. Use for: viewing files, reading configuration, checking contents, etc.",
         parameters=ToolParameters(
             properties={
                 "file_path": ToolParameter(
@@ -94,7 +94,7 @@ READ_FILE_TOOL = Tool(
 WRITE_FILE_TOOL = Tool(
     function=ToolFunction(
         name="write_file",
-        description="Write content to a file in the project directory. Use for: creating files, updating configuration, writing code, etc.",
+        description="Write(file_path, content): Write content to a file in the project directory. Use for: creating files, updating configuration, writing code, etc.",
         parameters=ToolParameters(
             properties={
                 "file_path": ToolParameter(
