@@ -245,21 +245,10 @@ Remember: You MUST use the appropriate tools to complete this task. Do not just 
                 max_tokens=self.config.max_tokens,
             )
 
-            # Build final response with tool execution metadata (like Claude Code does)
-            full_response = result.response_text or "Tools executed successfully"
-
-            # Add tool execution summary
-            tool_summary = result.format_summary()
-            if tool_summary:
-                full_response += tool_summary
-
-            # After tool execution, try to read back any files that were created
-            # This captures the actual file contents for context (like Claude Code does with Write())
-            file_contents = self._get_written_file_contents(result)
-            if file_contents:
-                full_response += file_contents
-
-            return full_response
+            # Return the model's response text
+            # Files are written to disk and serve as the source of truth
+            # (Following Claude Code's approach: don't duplicate file contents in conversation history)
+            return result.response_text or "Tools executed successfully"
         except Exception as e:
             logger.error(f"Tool execution failed: {e}")
             raise

@@ -693,15 +693,10 @@ async def _handle_chat(
                 orchestrator = Orchestrator(config, client, agent.tool_executor)
                 result = await orchestrator.execute(plan)
 
-                # Add to session - include both plan and execution result for context
-                plan_summary = "\n".join([
-                    f"{task.task_id}: {task.description} (model: {task.model})"
-                    for task in plan.tasks
-                ])
-                full_response = f"Execution Plan:\n{plan_summary}\n\nExecution Result:\n{result}"
-
+                # Add to session - just the execution result (files are the source of truth)
+                # Following Claude Code's approach: don't duplicate file contents in conversation history
                 session.add_message("user", user_input)
-                session.add_message("assistant", full_response)
+                session.add_message("assistant", result)
                 return
         except Exception as e:
             logger.debug(f"Orchestration failed (falling back to agent/chat): {e}")
