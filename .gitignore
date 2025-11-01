@@ -127,3 +127,6 @@ dmypy.json
 
 # Madison
 .madison/
+
+# Temporary files
+tmp/
