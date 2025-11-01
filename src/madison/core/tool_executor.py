@@ -90,12 +90,7 @@ class ToolExecutor:
         try:
             logger.info(f"Reading file: {file_path}")
             content = self.file_ops.read(file_path)
-
-            # Format output like Claude Code: Read(file_path) with line count
-            line_count = content.count('\n') + 1 if content else 0
-            output_header = f"Read({file_path})\n  ⎿  Read {line_count} lines\n"
-
-            return output_header + content
+            return content
 
         except FileNotFoundError:
             return f"Error: File not found: {file_path}"
@@ -122,12 +117,7 @@ class ToolExecutor:
         try:
             logger.info(f"Writing to file: {file_path}")
             self.file_ops.write(file_path, content)
-
-            # Format output like Claude Code: Write(file_path) with byte count
-            byte_count = len(content)
-            output = f"Write({file_path})\n  ⎿  Wrote {byte_count} bytes"
-
-            return output
+            return f"Successfully wrote {len(content)} bytes to {file_path}"
 
         except Exception as e:
             error_msg = f"Failed to write file: {str(e)}"
