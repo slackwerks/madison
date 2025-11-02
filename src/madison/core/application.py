@@ -2,7 +2,12 @@
 
 import asyncio
 import logging
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Union
+
+from rich.syntax import Syntax
+from rich.markdown import Markdown
+from rich.console import RenderableType
 
 from madison.api.client import OpenRouterClient
 from madison.core.agent import Agent
@@ -191,7 +196,9 @@ class MadisonApplication:
                     line_count = len(content.splitlines())
                     op_context.add_detail(f"Read {line_count} lines ({len(content)} bytes)")
                     self.ui_handler.complete_operation(op_context)
-                    self.ui_handler.display_panel(content, title=f"File: {args}")
+                    # Format content based on file type
+                    formatted_content = self._format_file_content(args, content)
+                    self.ui_handler.display_panel(formatted_content, title=f"File: {args}")
                     # Add to session for context
                     self.session.add_message(
                         "user",
@@ -505,6 +512,70 @@ class MadisonApplication:
             op_context.add_detail(f"Error: {str(e)}", success=False)
             self.ui_handler.complete_operation(op_context)
             self.ui_handler.display_error(str(e))
+
+    def _format_file_content(self, file_path: str, content: str) -> RenderableType:
+        """Format file content based on file type for rich display.
+
+        Args:
+            file_path: The file path (used to detect file type)
+            content: The file content
+
+        Returns:
+            A Rich renderable object (Syntax, Markdown, or plain string)
+        """
+        path = Path(file_path)
+        suffix = path.suffix.lower()
+
+        # Markdown files
+        if suffix == ".md":
+            return Markdown(content)
+
+        # Code files with syntax highlighting
+        code_extensions = {
+            ".py": "python",
+            ".js": "javascript",
+            ".ts": "typescript",
+            ".tsx": "typescript",
+            ".jsx": "javascript",
+            ".json": "json",
+            ".yaml": "yaml",
+            ".yml": "yaml",
+            ".toml": "toml",
+            ".rust": "rust",
+            ".rs": "rust",
+            ".go": "go",
+            ".java": "java",
+            ".cpp": "cpp",
+            ".c": "c",
+            ".h": "c",
+            ".hpp": "cpp",
+            ".cs": "csharp",
+            ".rb": "ruby",
+            ".php": "php",
+            ".swift": "swift",
+            ".kt": "kotlin",
+            ".scala": "scala",
+            ".sh": "bash",
+            ".bash": "bash",
+            ".html": "html",
+            ".htm": "html",
+            ".css": "css",
+            ".scss": "scss",
+            ".sql": "sql",
+            ".xml": "xml",
+            ".vim": "vim",
+        }
+
+        if suffix in code_extensions:
+            language = code_extensions[suffix]
+            try:
+                return Syntax(content, language, theme="monokai", line_numbers=True)
+            except Exception:
+                # Fallback to plain text if syntax highlighting fails
+                return content
+
+        # Plain text for other files
+        return content
 
     def _show_ask_help(self) -> None:
         """Show help for /ask command."""
