@@ -9,6 +9,7 @@ import asyncio
 import logging
 from typing import Optional, List
 from textual.app import ComposeResult, App as TextualApp
+from textual.events import MouseScrollDown, MouseScrollUp
 
 from madison.core.application import MadisonApplication
 from madison.core.textual_ui_handler import TextualUIHandler
@@ -88,7 +89,11 @@ class MadisonTUIApp(TextualApp):
     """
 
     BINDINGS = [
-        ("ctrl+tab", "toggle_pane_focus", "Toggle pane focus"),
+        ("shift+tab", "toggle_pane_focus", "Toggle pane focus"),
+        ("up", "scroll_focused_pane('up')", "Scroll up"),
+        ("down", "scroll_focused_pane('down')", "Scroll down"),
+        ("pageup", "scroll_focused_pane('pageup')", "Page up"),
+        ("pagedown", "scroll_focused_pane('pagedown')", "Page down"),
     ]
 
     def __init__(self, config: Optional[Config] = None, model: Optional[str] = None):
@@ -260,6 +265,57 @@ class MadisonTUIApp(TextualApp):
                 content_pane_scroll.add_class("focus")
         except Exception as e:
             logger.exception(f"Error toggling pane focus: {e}")
+
+    def action_scroll_focused_pane(self, direction: str) -> None:
+        """Scroll the focused pane in the specified direction.
+
+        Args:
+            direction: 'up', 'down', 'pageup', or 'pagedown'
+        """
+        try:
+            # Get the appropriate scroll container
+            if self._left_pane_focused:
+                scroll_view = self.query_one("#message_log_scroll")
+            else:
+                scroll_view = self.query_one("#content_pane_scroll")
+
+            # Perform the scroll action
+            if direction == "up":
+                scroll_view.scroll_up(animate=False)
+            elif direction == "down":
+                scroll_view.scroll_down(animate=False)
+            elif direction == "pageup":
+                scroll_view.page_up()
+            elif direction == "pagedown":
+                scroll_view.page_down()
+        except Exception as e:
+            logger.exception(f"Error scrolling focused pane: {e}")
+
+    def on_mouse_scroll_down(self, event: MouseScrollDown) -> None:
+        """Handle mouse scroll down in the focused pane."""
+        try:
+            if self._left_pane_focused:
+                scroll_view = self.query_one("#message_log_scroll")
+            else:
+                scroll_view = self.query_one("#content_pane_scroll")
+
+            scroll_view.scroll_down(animate=False)
+            event.prevent_default()
+        except Exception as e:
+            logger.exception(f"Error handling mouse scroll down: {e}")
+
+    def on_mouse_scroll_up(self, event: MouseScrollUp) -> None:
+        """Handle mouse scroll up in the focused pane."""
+        try:
+            if self._left_pane_focused:
+                scroll_view = self.query_one("#message_log_scroll")
+            else:
+                scroll_view = self.query_one("#content_pane_scroll")
+
+            scroll_view.scroll_up(animate=False)
+            event.prevent_default()
+        except Exception as e:
+            logger.exception(f"Error handling mouse scroll up: {e}")
 
     async def action_quit(self) -> None:
         """Quit the application."""
