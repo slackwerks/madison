@@ -111,26 +111,68 @@ class ContentPane(Static):
     def __init__(self, id: str = "content_pane"):
         super().__init__(id=id)
         self.content_items: List[RenderableType] = []
+        self._current_streaming: Optional[str] = None
 
     def add_content(self, content: RenderableType) -> None:
         """Add a content item to the pane."""
         self.content_items.append(content)
+        self._current_streaming = None  # Clear streaming mode when adding static content
         self.update_display()
+
+    def start_streaming(self, header: str = "") -> None:
+        """Start a streaming response block.
+
+        Args:
+            header: Optional header text to display before streaming content
+        """
+        self._current_streaming = header if header else ""
+        self.update_display()
+
+    def stream_token(self, token: str) -> None:
+        """Add a token to the current streaming block.
+
+        Args:
+            token: Token to add
+        """
+        if self._current_streaming is not None:
+            self._current_streaming += token
+            self.update_display()
+
+    def end_streaming(self) -> None:
+        """End the current streaming block and save it as content."""
+        if self._current_streaming is not None:
+            # Save the streaming content as a regular content item
+            self.content_items.append(self._current_streaming)
+            self._current_streaming = None
+            self.update_display()
 
     def update_display(self) -> None:
         """Update the display with all content."""
-        if not self.content_items:
+        if not self.content_items and self._current_streaming is None:
             self.update("")
             return
-        # Convert all items to strings and join them
-        output = "\n\n".join(
-            str(item) for item in self.content_items
-        )
+
+        output_parts = []
+
+        # Add regular content items
+        for item in self.content_items:
+            output_parts.append(str(item))
+
+        # Add streaming content if active (with indicator)
+        if self._current_streaming is not None:
+            if output_parts:
+                output_parts.append("")  # Blank line separator
+            # Add streaming indicator
+            output_parts.append("[dim]⏳ Generating...[/dim]")
+            output_parts.append(self._current_streaming)
+
+        output = "\n\n".join(output_parts) if output_parts else ""
         self.update(output)
 
     def clear(self) -> None:
         """Clear all content."""
         self.content_items.clear()
+        self._current_streaming = None
         self.update("")
 
     def render(self) -> RenderableType:
@@ -176,6 +218,18 @@ class RightPane(Vertical):
         """Add content to the pane."""
         self.content_pane.add_content(content)
 
+    def start_streaming(self, header: str = "") -> None:
+        """Start a streaming response."""
+        self.content_pane.start_streaming(header)
+
+    def stream_token(self, token: str) -> None:
+        """Add a token to the streaming response."""
+        self.content_pane.stream_token(token)
+
+    def end_streaming(self) -> None:
+        """End the streaming response."""
+        self.content_pane.end_streaming()
+
     def clear_content(self) -> None:
         """Clear all content."""
         self.content_pane.clear()
@@ -201,6 +255,18 @@ class SplitScreenContainer(Horizontal):
     def add_right_content(self, content: RenderableType) -> None:
         """Add content to the right pane."""
         self.right_pane.add_content(content)
+
+    def start_streaming(self, header: str = "") -> None:
+        """Start streaming response in right pane."""
+        self.right_pane.start_streaming(header)
+
+    def stream_token(self, token: str) -> None:
+        """Add a token to the streaming response."""
+        self.right_pane.stream_token(token)
+
+    def end_streaming(self) -> None:
+        """End the streaming response."""
+        self.right_pane.end_streaming()
 
     def clear_left(self) -> None:
         """Clear left pane."""

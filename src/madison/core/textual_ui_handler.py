@@ -195,23 +195,26 @@ class TextualUIHandler(UIHandler):
         self._streaming_active = True
         self._streaming_buffer = ""
 
-        # Display header in right pane
+        # Display RESPONSE status in left pane
         timestamp = datetime.now().strftime("%H:%M:%S")
-        header_msg = f"[dim]{timestamp}[/dim] {header}\n"
         self.split_screen.add_left_message(f"[dim]{timestamp}[/dim] [green]RESPONSE[/green]")
+
+        # Start streaming in right pane with header
+        self.split_screen.start_streaming(header)
 
     def stream_token(self, token: str) -> None:
         """Write a token to the current streaming block."""
         if self._streaming_active:
             self._streaming_buffer += token
+            # Stream token directly to right pane for real-time display
+            if self.split_screen:
+                self.split_screen.stream_token(token)
 
     def end_streaming(self) -> None:
-        """End the current streaming block and display the accumulated content."""
+        """End the current streaming block."""
         if self._streaming_active and self.split_screen:
-            if self._streaming_buffer:
-                # Display the accumulated streaming content on the right pane
-                content = RichText(self._streaming_buffer)
-                self.split_screen.add_right_content(content)
+            # End streaming in right pane
+            self.split_screen.end_streaming()
 
             self._streaming_active = False
             self._streaming_buffer = ""
