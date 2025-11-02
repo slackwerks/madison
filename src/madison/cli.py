@@ -15,11 +15,23 @@ from madison.core.tui_launcher import launch_tui
 from madison.exceptions import ConfigError
 from madison.utils.setup import run_setup_wizard
 
-# Setup logging
-logging.basicConfig(
-    level=logging.WARNING,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+# Setup logging to file
+def _setup_file_logging():
+    """Setup logging to ./.madison/madison.log (local to current directory)"""
+    from pathlib import Path
+    log_dir = Path(".madison")
+    log_dir.mkdir(exist_ok=True)
+    log_file = log_dir / "madison.log"
+
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler(log_file),
+        ],
+    )
+
+_setup_file_logging()
 logger = logging.getLogger(__name__)
 
 app = typer.Typer(
@@ -31,11 +43,13 @@ console = Console()
 
 
 def setup_logging(verbose: bool = False):
-    """Setup logging level."""
+    """Setup logging level (verbose flag controls console output if needed)."""
+    # Logging already goes to file at DEBUG level
+    # This flag could be used for future console logging if desired
     if verbose:
         logging.getLogger("madison").setLevel(logging.DEBUG)
     else:
-        logging.getLogger("madison").setLevel(logging.WARNING)
+        logging.getLogger("madison").setLevel(logging.INFO)
 
 
 @app.callback(invoke_without_command=True)
