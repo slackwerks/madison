@@ -7,27 +7,52 @@ Phase 4 focuses on enhancing the TUI panes with better content display and real-
 
 ## Enhancement 1: Real-time Operation Logging in Left Pane
 
-**Goal:** Track all operations with timestamps and status in the left pane
+**Goal:** Track all operations with hierarchical details in the left pane using Claude Code style formatting
 
 **Implementation:**
-- Update `display_operation()` in TextualUIHandler to format operations consistently
-- Add operation start/end tracking (e.g., "READ started" → "READ completed" or "READ failed")
-- Show operation details inline (file path for reads, command for execs, query for searches)
-- Format: `[HH:MM:SS] [OP_TYPE] status: details`
+- Create `OperationContext` class to track operations and their details
+- Add `start_operation()` and `complete_operation()` methods to UIHandler
+- Display operations in Claude Code style with `↳` arrow for details:
+  ```
+  Operation(description)
+    ↳ Detail line 1
+    ↳ Detail line 2
+  ```
+- Integrate operation logging into `/read`, `/exec`, `/search` commands
 - Example output:
   ```
-  [14:23:45] READ: Reading /path/to/file.py
-  [14:23:46] READ: Complete (2,340 bytes)
-  [14:23:47] EXEC: Running: ls -la
-  [14:23:48] EXEC: Complete (exit code: 0)
+  Read(story.txt)
+    ↳ Read 147 lines (4,234 bytes)
+
+  Exec(ls -la)
+    ↳ Exit code: 0
+    ↳ Output: 1,234 bytes
+
+  Search(python async)
+    ↳ Found 2,456 characters
   ```
+
+**Implementation Details:**
+- `OperationContext` tracks operation type, description, and details
+- Details can be marked as success (green) or failure (red)
+- Operations display once at completion with all accumulated details
+- File operations show line counts and byte counts
+- Command execution shows exit codes and output/error sizes
+- Search results show character counts
+
+**Outstanding Items for Step 1:**
+- Plan execution operations not yet tracked (orchestration visibility gap)
+  - Need to show when each plan task starts/completes
+  - Need to show overall plan completion status
+  - Currently plan execution is silent until results appear
 
 **Testing Checklist:**
 - [ ] Run madison TUI mode
-- [ ] Execute `/read <filepath>` and verify operation appears in left pane with timestamp
-- [ ] Execute `/exec <command>` and verify operation appears with status
-- [ ] Execute `/search <query>` and verify operation appears with query text
-- [ ] Verify all operations show completion status or error status
+- [ ] Execute `/read <filepath>` and verify operation format with lines and bytes
+- [ ] Execute `/exec <command>` and verify operation shows exit code and output size
+- [ ] Execute `/search <query>` and verify operation shows result size
+- [ ] Verify operations appear only once with all details
+- [ ] Verify success/failure details show correct colors (green/red)
 
 ---
 

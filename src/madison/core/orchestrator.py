@@ -3,7 +3,7 @@
 import logging
 import re
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
 
 from rich.console import Console
 
@@ -14,6 +14,9 @@ from madison.core.planner import ExecutionPlan, Task
 from madison.core.tool_executor import ToolExecutor
 from madison.core.tools import get_tools_as_dicts
 
+if TYPE_CHECKING:
+    from madison.core.ui_interface import UIHandler
+
 logger = logging.getLogger(__name__)
 console = Console()
 
@@ -21,17 +24,19 @@ console = Console()
 class Orchestrator:
     """Executes task plans with model routing and tool execution."""
 
-    def __init__(self, config: Config, client: OpenRouterClient, tool_executor: Optional[ToolExecutor] = None):
+    def __init__(self, config: Config, client: OpenRouterClient, tool_executor: Optional[ToolExecutor] = None, ui_handler: Optional["UIHandler"] = None):
         """Initialize the orchestrator.
 
         Args:
             config: Madison configuration
             client: OpenRouter API client
             tool_executor: Tool executor for file operations, etc.
+            ui_handler: Optional UI handler for displaying operation progress
         """
         self.config = config
         self.client = client
         self.tool_executor = tool_executor or ToolExecutor()
+        self.ui_handler = ui_handler
 
         # Model name to config strategy mapping
         self.model_mapping = {
@@ -136,50 +141,91 @@ class Orchestrator:
         logger.info(f"Starting orchestration of {len(plan.tasks)} tasks")
         task_outputs: Dict[str, Any] = {}
 
-        # Keep executing while there are executable tasks
-        while True:
-            executable_tasks = plan.get_executable_tasks()
-            if not executable_tasks:
-                break
+        # Create a parent operation context for the whole plan
+        plan_op = None
+        task_count = len(plan.tasks)
+        if self.ui_handler:
+            plan_op = self.ui_handler.start_operation("orchestration", f"Executing {task_count} tasks")
 
-            # Execute each ready task
-            for task in executable_tasks:
-                logger.info(f"Executing task: {task.task_id} - {task.description}")
-                console.print(f"\n[cyan]→ {task.description}[/cyan]")
+        try:
+            # Keep executing while there are executable tasks
+            while True:
+                executable_tasks = plan.get_executable_tasks()
+                if not executable_tasks:
+                    break
 
-                # Resolve the actual model to use
-                actual_model = self._resolve_model(task.model)
-                console.print(f"  [dim]Model: {task.model} ({actual_model})[/dim]")
+                # Execute each ready task
+                for task in executable_tasks:
+                    logger.info(f"Executing task: {task.task_id} - {task.description}")
+                    console.print(f"\n[cyan]→ {task.description}[/cyan]")
 
-                # Substitute variables in instructions
-                instructions = self._substitute_variables(task.instructions, task_outputs)
+                    # Track individual task execution
+                    task_op = None
+                    if self.ui_handler:
+                        task_op = self.ui_handler.start_operation("task", task.task_id)
 
-                try:
-                    if task.requires_tools:
-                        # Execute with tool calling
-                        result = await self._execute_with_tools(task, instructions, actual_model)
-                    else:
-                        # Execute as simple text generation
-                        result = await self._execute_text_generation(instructions, actual_model)
+                    # Resolve the actual model to use
+                    actual_model = self._resolve_model(task.model)
+                    console.print(f"  [dim]Model: {task.model} ({actual_model})[/dim]")
 
-                    task.output = result
-                    task_outputs[task.task_id] = result
-                    logger.info(f"Task {task.task_id} completed")
+                    # Substitute variables in instructions
+                    instructions = self._substitute_variables(task.instructions, task_outputs)
 
-                except Exception as e:
-                    error_msg = f"Task {task.task_id} failed: {e}"
-                    logger.error(error_msg)
-                    console.print(f"  [red]Error: {e}[/red]")
-                    task.output = None
-                    return error_msg
+                    try:
+                        if task.requires_tools:
+                            # Execute with tool calling
+                            result = await self._execute_with_tools(task, instructions, actual_model)
+                        else:
+                            # Execute as simple text generation
+                            result = await self._execute_text_generation(instructions, actual_model)
 
-        # Return the output of the last task
-        if plan.tasks:
-            last_task = plan.tasks[-1]
-            final_output = task_outputs.get(last_task.task_id, "")
-            logger.info("Orchestration complete")
-            return final_output or "Task execution completed"
-        return "No tasks to execute"
+                        task.output = result
+                        task_outputs[task.task_id] = result
+                        logger.info(f"Task {task.task_id} completed")
+
+                        # Mark task as complete
+                        if task_op and self.ui_handler:
+                            task_op.add_detail(f"{task.description}: Complete")
+                            self.ui_handler.complete_operation(task_op)
+
+                    except Exception as e:
+                        error_msg = f"Task {task.task_id} failed: {e}"
+                        logger.error(error_msg)
+                        console.print(f"  [red]Error: {e}[/red]")
+                        task.output = None
+
+                        # Mark task as failed
+                        if task_op and self.ui_handler:
+                            task_op.add_detail(f"Error: {str(e)}", success=False)
+                            self.ui_handler.complete_operation(task_op)
+
+                        # Complete the plan operation as failed
+                        if plan_op and self.ui_handler:
+                            plan_op.add_detail(f"Task {task.task_id} failed: {str(e)}", success=False)
+                            self.ui_handler.complete_operation(plan_op)
+
+                        return error_msg
+
+            # Complete the plan operation successfully
+            if plan_op and self.ui_handler:
+                completed_count = sum(1 for t in plan.tasks if t.output is not None)
+                plan_op.add_detail(f"Completed {completed_count}/{task_count} tasks")
+                self.ui_handler.complete_operation(plan_op)
+
+            # Return the output of the last task
+            if plan.tasks:
+                last_task = plan.tasks[-1]
+                final_output = task_outputs.get(last_task.task_id, "")
+                logger.info("Orchestration complete")
+                return final_output or "Task execution completed"
+            return "No tasks to execute"
+
+        except Exception as e:
+            # Catch any unexpected errors and mark plan as failed
+            if plan_op and self.ui_handler:
+                plan_op.add_detail(f"Orchestration failed: {str(e)}", success=False)
+                self.ui_handler.complete_operation(plan_op)
+            raise
 
     async def _execute_text_generation(self, instructions: str, model: str) -> str:
         """Execute a text generation task.

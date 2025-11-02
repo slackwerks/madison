@@ -598,7 +598,7 @@ class MadisonApplication:
                         task_summary = ", ".join(task.task_id for task in plan.tasks)
                         self.ui_handler.display_plain(f"Created plan with tasks: {task_summary}")
 
-                    orchestrator = Orchestrator(self.config, self.client, self.agent.tool_executor)
+                    orchestrator = Orchestrator(self.config, self.client, self.agent.tool_executor, self.ui_handler)
                     result = await orchestrator.execute(plan)
 
                     self.session.add_message("user", user_input)
