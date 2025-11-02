@@ -190,14 +190,27 @@ class LeftPane(Vertical):
         self.message_log = MessageLog(id="message_log")
         # Use InputTextArea for multi-line input that grows
         self.input_field = InputTextArea(id="input", language="")
+        # Track if we should auto-scroll (true unless user manually scrolled up)
+        self._auto_scroll = True
 
     def compose(self) -> ComposeResult:
-        yield self.message_log
+        # Wrap message log in a scrollable container
+        with VerticalScroll(id="message_log_scroll"):
+            yield self.message_log
         yield self.input_field
 
     def add_message(self, content: str) -> None:
-        """Add a message to the log."""
+        """Add a message to the log and auto-scroll to bottom."""
         self.message_log.add_message(content)
+        # Auto-scroll to bottom when new message is added
+        if self._auto_scroll:
+            self._scroll_to_bottom()
+
+    def _scroll_to_bottom(self) -> None:
+        """Scroll the message log to the bottom."""
+        scroll_view = self.query_one("#message_log_scroll", VerticalScroll)
+        # Scroll to the end
+        scroll_view.scroll_end(animate=False)
 
     def clear_messages(self) -> None:
         """Clear all messages."""
@@ -212,15 +225,26 @@ class RightPane(Vertical):
         self.content_pane = ContentPane(id="content_pane")
 
     def compose(self) -> ComposeResult:
-        yield self.content_pane
+        # Wrap content pane in a scrollable container
+        with VerticalScroll(id="content_pane_scroll"):
+            yield self.content_pane
 
     def add_content(self, content: RenderableType) -> None:
-        """Add content to the pane."""
+        """Add content to the pane and scroll to top."""
         self.content_pane.add_content(content)
+        # Scroll to the top when new content is added
+        self._scroll_to_top()
+
+    def _scroll_to_top(self) -> None:
+        """Scroll the content pane to the top."""
+        scroll_view = self.query_one("#content_pane_scroll", VerticalScroll)
+        scroll_view.scroll_home(animate=False)
 
     def start_streaming(self, header: str = "") -> None:
         """Start a streaming response."""
         self.content_pane.start_streaming(header)
+        # Scroll to top when streaming starts
+        self._scroll_to_top()
 
     def stream_token(self, token: str) -> None:
         """Add a token to the streaming response."""

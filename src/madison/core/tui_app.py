@@ -48,6 +48,11 @@ class MadisonTUIApp(TextualApp):
         border: none;
     }
 
+    #message_log_scroll {
+        height: 1fr;
+        border: none;
+    }
+
     #message_log {
         height: 1fr;
         border: none;
@@ -62,11 +67,29 @@ class MadisonTUIApp(TextualApp):
         overflow: auto;
     }
 
+    #content_pane_scroll {
+        height: 1fr;
+        border: none;
+    }
+
     #content_pane {
         height: 1fr;
         border: none;
     }
+
+    /* Pane focus styling */
+    #message_log_scroll.focus {
+        border: solid blue;
+    }
+
+    #content_pane_scroll.focus {
+        border: solid blue;
+    }
     """
+
+    BINDINGS = [
+        ("ctrl+tab", "toggle_pane_focus", "Toggle pane focus"),
+    ]
 
     def __init__(self, config: Optional[Config] = None, model: Optional[str] = None):
         """Initialize the Madison TUI application.
@@ -86,6 +109,8 @@ class MadisonTUIApp(TextualApp):
         self._app_task: Optional[asyncio.Task] = None
         self.input_history: List[str] = []
         self.history_index: int = -1
+        # Pane focus management (True = left pane has scroll focus, False = right pane)
+        self._left_pane_focused: bool = True
 
     def compose(self) -> ComposeResult:
         """Compose the app layout."""
@@ -215,6 +240,26 @@ class MadisonTUIApp(TextualApp):
         except Exception as e:
             logger.exception("Error queuing input")
             self.split_screen.add_left_message(f"[red]Error queuing input:[/red] {str(e)}")
+
+    def action_toggle_pane_focus(self) -> None:
+        """Toggle scroll focus between left and right panes."""
+        try:
+            # Get the scroll containers
+            message_log_scroll = self.query_one("#message_log_scroll")
+            content_pane_scroll = self.query_one("#content_pane_scroll")
+
+            # Toggle focus state
+            self._left_pane_focused = not self._left_pane_focused
+
+            # Update visual indicator (focus class)
+            if self._left_pane_focused:
+                message_log_scroll.add_class("focus")
+                content_pane_scroll.remove_class("focus")
+            else:
+                message_log_scroll.remove_class("focus")
+                content_pane_scroll.add_class("focus")
+        except Exception as e:
+            logger.exception(f"Error toggling pane focus: {e}")
 
     async def action_quit(self) -> None:
         """Quit the application."""
