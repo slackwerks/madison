@@ -65,6 +65,28 @@ class UIHandler(ABC):
         pass
 
     @abstractmethod
+    def start_operation(self, operation_type: str, description: str):
+        """Start tracking an operation.
+
+        Args:
+            operation_type: Type of operation (read, exec, search, etc.)
+            description: Human-readable description (file path, command, etc.)
+
+        Returns:
+            OperationContext: Context object to track this operation
+        """
+        pass
+
+    @abstractmethod
+    def complete_operation(self, context) -> None:
+        """Complete and finalize an operation.
+
+        Args:
+            context: The OperationContext to complete
+        """
+        pass
+
+    @abstractmethod
     def display_error(self, error_message: str) -> None:
         """Display an error message.
 

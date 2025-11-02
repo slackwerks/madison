@@ -1,11 +1,12 @@
 """Textual UI handler implementation for Madison."""
 
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Dict
 from datetime import datetime
 
 from rich.text import Text as RichText
 
 from madison.core.ui_interface import UIHandler
+from madison.core.operation_tracker import OperationContext
 
 if TYPE_CHECKING:
     from textual.app import App
@@ -24,6 +25,7 @@ class TextualUIHandler(UIHandler):
         self.split_screen = getattr(app, "split_screen", None)
         self._streaming_active = False
         self._streaming_buffer = ""
+        self._current_operations: Dict[str, OperationContext] = {}
 
     async def request_input(self) -> str:
         """Request user input from the Textual interface.
@@ -116,6 +118,39 @@ class TextualUIHandler(UIHandler):
             message += f"\n[dim]  {details}[/dim]"
 
         self.split_screen.add_left_message(message)
+
+    def start_operation(self, operation_type: str, description: str) -> OperationContext:
+        """Start tracking an operation.
+
+        Args:
+            operation_type: Type of operation (read, exec, search, etc.)
+            description: Human-readable description (file path, command, etc.)
+
+        Returns:
+            OperationContext: Context object to track this operation
+        """
+        op_id = f"{operation_type}:{description}"
+        context = OperationContext(operation_type, description)
+        self._current_operations[op_id] = context
+
+        # Don't display yet - wait for complete_operation() to show the full result
+        return context
+
+    def complete_operation(self, context: OperationContext) -> None:
+        """Complete and finalize an operation.
+
+        Args:
+            context: The OperationContext to complete
+        """
+        context.complete()
+        op_id = f"{context.operation_type}:{context.description}"
+
+        if op_id in self._current_operations:
+            del self._current_operations[op_id]
+
+        # Display the operation with all details once at the end
+        if self.split_screen:
+            self.split_screen.add_left_message(f"[cyan]{context.format()}[/cyan]")
 
     def display_error(self, error_message: str) -> None:
         """Display an error message."""

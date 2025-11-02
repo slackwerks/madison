@@ -51,6 +51,15 @@ class CLIUIHandler(UIHandler):
         if details:
             self.console.print(f"[dim]{details}[/dim]")
 
+    def start_operation(self, operation_type: str, description: str):
+        """Start tracking an operation (CLI stub - just returns None)."""
+        from madison.core.operation_tracker import OperationContext
+        return OperationContext(operation_type, description)
+
+    def complete_operation(self, context) -> None:
+        """Complete an operation (CLI stub - prints the operation)."""
+        self.console.print(context.format())
+
     def display_error(self, error_message: str) -> None:
         """Display an error message."""
         self.console.print(f"[red]Error:[/red] {error_message}")

@@ -185,9 +185,12 @@ class MadisonApplication:
             if not args:
                 self.ui_handler.display_error("Usage: /read <filepath>")
             else:
+                op_context = self.ui_handler.start_operation("read", args)
                 try:
                     content = self.file_ops.read(args)
-                    self.ui_handler.display_operation("read", f"Contents of {args}")
+                    line_count = len(content.splitlines())
+                    op_context.add_detail(f"Read {line_count} lines ({len(content)} bytes)")
+                    self.ui_handler.complete_operation(op_context)
                     self.ui_handler.display_panel(content, title=f"File: {args}")
                     # Add to session for context
                     self.session.add_message(
@@ -195,6 +198,8 @@ class MadisonApplication:
                         f"Please look at this file content and respond:\n\n```\n{content}\n```",
                     )
                 except Exception as e:
+                    op_context.add_detail(f"Error: {str(e)}", success=False)
+                    self.ui_handler.complete_operation(op_context)
                     self.ui_handler.display_error(str(e))
 
         elif command == "/write":
@@ -433,18 +438,27 @@ class MadisonApplication:
 
     async def _handle_exec_command(self, command: str, cancel_token: CancellationToken) -> None:
         """Handle /exec command."""
+        op_context = self.ui_handler.start_operation("exec", command)
         try:
-            self.ui_handler.display_operation("exec", f"Executing: {command}")
-
             if cancel_token.is_cancelled:
-                self.ui_handler.display_warning("Operation cancelled.")
+                op_context.add_detail("Cancelled", success=False)
+                self.ui_handler.complete_operation(op_context)
                 return
 
             stdout, stderr, returncode = await self.cmd_executor.execute(command)
 
             if cancel_token.is_cancelled:
-                self.ui_handler.display_warning("Operation cancelled.")
+                op_context.add_detail("Cancelled", success=False)
+                self.ui_handler.complete_operation(op_context)
                 return
+
+            success = returncode == 0
+            op_context.add_detail(f"Exit code: {returncode}", success=success)
+            if stdout:
+                op_context.add_detail(f"Output: {len(stdout)} bytes")
+            if stderr:
+                op_context.add_detail(f"Errors: {len(stderr)} bytes", success=False)
+            self.ui_handler.complete_operation(op_context)
 
             output = ""
             if stdout:
@@ -466,24 +480,30 @@ class MadisonApplication:
 
     async def _handle_search_command(self, query: str, cancel_token: CancellationToken) -> None:
         """Handle /search command."""
+        op_context = self.ui_handler.start_operation("search", query)
         try:
-            self.ui_handler.display_operation("search", f"Searching for: {query}")
-
             if cancel_token.is_cancelled:
-                self.ui_handler.display_warning("Operation cancelled.")
+                op_context.add_detail("Cancelled", success=False)
+                self.ui_handler.complete_operation(op_context)
                 return
 
             results = await self.searcher.search(query)
 
             if cancel_token.is_cancelled:
-                self.ui_handler.display_warning("Operation cancelled.")
+                op_context.add_detail("Cancelled", success=False)
+                self.ui_handler.complete_operation(op_context)
                 return
+
+            op_context.add_detail(f"Found {len(str(results))} characters")
+            self.ui_handler.complete_operation(op_context)
 
             self.ui_handler.display_panel(str(results), title="Search Results")
 
             # Add search results to session for context
             self.session.add_message("user", f"Web search results for '{query}':\n\n{results}")
         except MadisonError as e:
+            op_context.add_detail(f"Error: {str(e)}", success=False)
+            self.ui_handler.complete_operation(op_context)
             self.ui_handler.display_error(str(e))
 
     def _show_ask_help(self) -> None:
