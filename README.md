@@ -28,6 +28,77 @@ pip install -e .
 
 # Or with dev dependencies
 pip install -e ".[dev]"
+
+# For Textual TUI support, also install madiuxexp
+pip install -e "madiuxexp"
+```
+
+## UI Modes
+
+Madison supports multiple user interface modes:
+
+### Textual TUI Mode (Default)
+
+A modern split-screen terminal UI with:
+- Left pane: Operations log and input
+- Right pane: Response content and results
+
+```bash
+# Launch Textual TUI mode (default)
+madison
+
+# Explicitly specify TUI mode
+madison --ui=tui
+
+# Specify model with TUI
+madison --ui=tui --model "claude-opus"
+```
+
+**Features:**
+- Split-screen layout for better context
+- Real-time operation tracking
+- Streaming response display
+- Rich formatting and panels
+- Keyboard shortcuts for common actions
+
+**Requirements:**
+- Textual framework installed (included with madiuxexp)
+- Modern terminal (supports ANSI escape codes)
+
+### CLI Mode
+
+The traditional command-line interface with full feature support.
+
+```bash
+# Launch CLI mode (opt-in)
+madison --ui=cli
+
+# Specify model with CLI
+madison --ui=cli --model "gpt-4"
+```
+
+**Features:**
+- Full feature parity with all Madison commands
+- Standard terminal-based REPL
+- Optimized for scripting and automation
+- Works over SSH and remote connections
+- Better for non-interactive environments
+
+### Switching Between Modes
+
+```bash
+# Use TUI by default (just run madison)
+madison
+
+# Explicitly use TUI mode
+madison --ui=tui
+
+# Use CLI mode instead
+madison --ui=cli
+
+# Combine with model selection
+madison --ui=cli --model "gpt-4"
+madison --ui=tui --model "claude-opus"
 ```
 
 ## Configuration
