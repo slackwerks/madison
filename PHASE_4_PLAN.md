@@ -97,48 +97,60 @@ Phase 4 focuses on enhancing the TUI panes with better content display and real-
 
 ---
 
-## Enhancement 4: Status Bar / Status Information Display
+## Enhancement 4: Scrollbuffers and Pane Focus Management
 
-**Goal:** Show current context (model, agent, operation count, etc.)
+**Goal:** Add scrollable content buffers to both panes with proper focus management
 
 **Implementation:**
-- Add a status line at the bottom of the TUI (or top, or integrated into UI)
-- Display: `Model: <name> | Agent: <name> | Operations: <count> | Status: <state>`
-- Update dynamically as state changes
-- Example: `Model: claude-opus | Agent: default | Operations: 3 | Ready`
-- Should be always visible and lightweight
-- Update when:
-  - Model is changed with `/model`
-  - Agent is selected with `/agent`
-  - Operations are executed
-  - Connection status changes
+
+### Part 4a: Scrollbuffers
+- **Left pane:** Add scrollable container for message log
+  - Auto-scrolls to bottom when new messages/operations are added
+  - User can manually scroll up to view history
+  - Session-based (no limit - keeps all messages for current session)
+  - New content triggers auto-scroll to latest
+
+- **Right pane:** Add scrollable container for content display
+  - Content renders with beginning pinned to top of pane
+  - Scrolling enabled only if content exceeds pane height
+  - Always scrolls to beginning (top) when new content is displayed
+
+### Part 4b: Pane Focus Management
+- **Ctrl-Tab:** Toggle scroll focus between left and right panes
+- Input field in left pane has separate focus from scroll focus
+- Visual indicator of which pane has scroll focus (e.g., border styling)
+- Left pane scrolling: operates on message/operation history
+- Right pane scrolling: operates on displayed content (file contents, responses, etc.)
 
 **Testing Checklist:**
-- [ ] Launch madison and verify status bar is visible at bottom (or designated location)
-- [ ] Verify it shows current model name
-- [ ] Execute `/model <new-model>` and verify status bar updates
-- [ ] Execute operations and verify operation counter increments
-- [ ] Select agent with `/agent` and verify status bar updates
+- [ ] Launch madison and verify both panes are scrollable
+- [ ] Add messages to left pane and verify auto-scroll to bottom
+- [ ] Manually scroll up in left pane to view history, verify new messages don't force scroll
+- [ ] Display large content in right pane and verify scrolling enabled
+- [ ] Display small content in right pane and verify no scrollbar
+- [ ] Test Ctrl-Tab to switch pane focus (visual indication changes)
+- [ ] Verify scrolling works in focused pane, not the unfocused pane
+- [ ] Verify input field in left pane works independently of scroll focus
 
 ---
 
 ## Implementation Order
 
-1. **Enhancement 1: Operation Logging**
+1. **Enhancement 1: Operation Logging** ✓
    - Foundation for visibility into what madison is doing
    - Makes debugging easier
 
-2. **Enhancement 2: Streaming Response**
+2. **Enhancement 2: Streaming Response** ✓
    - Core UX improvement for the most frequent user interaction
    - Better perceived performance
 
-3. **Enhancement 3: File Formatting**
+3. **Enhancement 3: File Formatting** ✓
    - Quality of life improvement for developers using `/read`
    - Makes code easier to parse visually
 
-4. **Enhancement 4: Status Bar**
-   - Context awareness across the application
-   - Keeps user informed of current state
+4. **Enhancement 4: Scrollbuffers and Pane Focus Management**
+   - Improved content navigation for both panes
+   - Better UX for viewing large outputs and conversation history
 
 ---
 
