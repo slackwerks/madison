@@ -24,12 +24,15 @@ def _setup_file_logging():
     log_file = log_dir / "madison.log"
 
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.INFO,  # Root logger at INFO to reduce noise from third-party libs
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[
             logging.FileHandler(log_file),
         ],
     )
+
+    # Set madison-specific loggers to INFO by default (can be overridden by --verbose)
+    logging.getLogger("madison").setLevel(logging.INFO)
 
 _setup_file_logging()
 logger = logging.getLogger(__name__)
@@ -43,9 +46,7 @@ console = Console()
 
 
 def setup_logging(verbose: bool = False):
-    """Setup logging level (verbose flag controls console output if needed)."""
-    # Logging already goes to file at DEBUG level
-    # This flag could be used for future console logging if desired
+    """Setup logging level (verbose flag enables DEBUG output)."""
     if verbose:
         logging.getLogger("madison").setLevel(logging.DEBUG)
     else:

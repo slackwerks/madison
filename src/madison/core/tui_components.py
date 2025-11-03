@@ -46,22 +46,8 @@ class InputTextArea(TextArea):
             # Ctrl+Enter inserts a newline
             self.insert("\n")
             event.prevent_default()
-        elif event.key == "up":
-            # Navigate to previous history item
-            if hasattr(self.app, "navigate_history"):
-                self.app.navigate_history(-1)
-                event.prevent_default()
-            else:
-                await super()._on_key(event)
-        elif event.key == "down":
-            # Navigate to next history item
-            if hasattr(self.app, "navigate_history"):
-                self.app.navigate_history(1)
-                event.prevent_default()
-            else:
-                await super()._on_key(event)
         else:
-            # Let parent handle all other keys
+            # Let parent handle all other keys (including up/down/etc)
             await super()._on_key(event)
 
 

@@ -9,7 +9,7 @@ import asyncio
 import logging
 from typing import Optional, List
 from textual.app import ComposeResult, App as TextualApp
-from textual.events import MouseScrollDown, MouseScrollUp
+from textual.events import MouseScrollDown, MouseScrollUp, Key
 
 from madison.core.application import MadisonApplication
 from madison.core.textual_ui_handler import TextualUIHandler
@@ -52,12 +52,12 @@ class MadisonTUIApp(TextualApp):
     #message_log_scroll {
         height: 1fr;
         border: none;
+        scrollbar-size: 0 1;
     }
 
     #message_log {
-        height: 1fr;
+        width: 1fr;
         border: none;
-        overflow: auto;
     }
 
     #input {
@@ -71,29 +71,34 @@ class MadisonTUIApp(TextualApp):
     #content_pane_scroll {
         height: 1fr;
         border: none;
+        scrollbar-size: 0 1;
     }
 
     #content_pane {
-        height: 1fr;
+        width: 1fr;
         border: none;
     }
 
     /* Pane focus styling */
     #message_log_scroll.focus {
-        border: solid blue;
+        border: heavy $accent;
+        background: $boost;
     }
 
     #content_pane_scroll.focus {
-        border: solid blue;
+        border: heavy $accent;
+        background: $boost;
     }
     """
 
     BINDINGS = [
-        ("shift+tab", "toggle_pane_focus", "Toggle pane focus"),
+        ("ctrl+n", "toggle_pane_focus", "Toggle pane focus"),
         ("up", "scroll_focused_pane('up')", "Scroll up"),
         ("down", "scroll_focused_pane('down')", "Scroll down"),
         ("pageup", "scroll_focused_pane('pageup')", "Page up"),
         ("pagedown", "scroll_focused_pane('pagedown')", "Page down"),
+        ("alt+up", "history_previous", "Previous history"),
+        ("alt+down", "history_next", "Next history"),
     ]
 
     def __init__(self, config: Optional[Config] = None, model: Optional[str] = None):
@@ -114,8 +119,8 @@ class MadisonTUIApp(TextualApp):
         self._app_task: Optional[asyncio.Task] = None
         self.input_history: List[str] = []
         self.history_index: int = -1
-        # Pane focus management (True = left pane has scroll focus, False = right pane)
-        self._left_pane_focused: bool = True
+        # Pane focus management: 'input' = input box, 'left' = left pane, 'right' = right pane
+        self._focus_state: str = 'left'  # Default to left pane focus
 
     def compose(self) -> ComposeResult:
         """Compose the app layout."""
@@ -246,23 +251,73 @@ class MadisonTUIApp(TextualApp):
             logger.exception("Error queuing input")
             self.split_screen.add_left_message(f"[red]Error queuing input:[/red] {str(e)}")
 
+    async def on_key(self, event: Key) -> None:
+        """Handle key events at app level, before they reach widgets."""
+        logger.debug(f"on_key called: key={event.key}, focus_state={self._focus_state}")
+        # If focus is on a pane (not input), handle scroll keys here
+        if self._focus_state in ('left', 'right'):
+            logger.debug(f"Pane has focus, checking scroll key: {event.key}")
+            if event.key == "up":
+                logger.debug("Handling up arrow for pane scroll")
+                self.action_scroll_focused_pane('up')
+                event.prevent_default()
+            elif event.key == "down":
+                logger.debug("Handling down arrow for pane scroll")
+                self.action_scroll_focused_pane('down')
+                event.prevent_default()
+            elif event.key == "pageup":
+                logger.debug("Handling pageup for pane scroll")
+                self.action_scroll_focused_pane('pageup')
+                event.prevent_default()
+            elif event.key == "pagedown":
+                logger.debug("Handling pagedown for pane scroll")
+                self.action_scroll_focused_pane('pagedown')
+                event.prevent_default()
+
+    def action_history_previous(self) -> None:
+        """Navigate to previous input history."""
+        if hasattr(self, "navigate_history"):
+            self.navigate_history(-1)
+
+    def action_history_next(self) -> None:
+        """Navigate to next input history."""
+        if hasattr(self, "navigate_history"):
+            self.navigate_history(1)
+
     def action_toggle_pane_focus(self) -> None:
-        """Toggle scroll focus between left and right panes."""
+        """Cycle focus between input box, left pane, and right pane."""
         try:
-            # Get the scroll containers
+            # Get the widgets
+            input_field = self.split_screen.get_input_field()
             message_log_scroll = self.query_one("#message_log_scroll")
             content_pane_scroll = self.query_one("#content_pane_scroll")
 
-            # Toggle focus state
-            self._left_pane_focused = not self._left_pane_focused
+            # Cycle through focus states: left -> right -> input -> left ...
+            if self._focus_state == 'left':
+                next_state = 'right'
+            elif self._focus_state == 'right':
+                next_state = 'input'
+            else:  # 'input'
+                next_state = 'left'
 
-            # Update visual indicator (focus class)
-            if self._left_pane_focused:
+            self._focus_state = next_state
+            logger.debug(f"Cycled pane focus to: {self._focus_state}")
+
+            # Update visual indicators (focus class) and widget focus
+            message_log_scroll.remove_class("focus")
+            content_pane_scroll.remove_class("focus")
+
+            if self._focus_state == 'input':
+                logger.debug("Focus -> input box")
+                input_field.focus()
+            elif self._focus_state == 'left':
+                logger.debug("Focus -> left pane")
                 message_log_scroll.add_class("focus")
-                content_pane_scroll.remove_class("focus")
-            else:
-                message_log_scroll.remove_class("focus")
+                message_log_scroll.focus()
+            elif self._focus_state == 'right':
+                logger.debug("Focus -> right pane")
                 content_pane_scroll.add_class("focus")
+                content_pane_scroll.focus()
         except Exception as e:
             logger.exception(f"Error toggling pane focus: {e}")
 
@@ -273,31 +328,45 @@ class MadisonTUIApp(TextualApp):
             direction: 'up', 'down', 'pageup', or 'pagedown'
         """
         try:
-            # Get the appropriate scroll container
-            if self._left_pane_focused:
+            logger.debug(f"action_scroll_focused_pane called: direction={direction}, focus_state={self._focus_state}")
+
+            # Get the appropriate scroll container based on focus state
+            if self._focus_state == 'left':
                 scroll_view = self.query_one("#message_log_scroll")
-            else:
+                logger.debug(f"Got left scroll view: {scroll_view}")
+            elif self._focus_state == 'right':
                 scroll_view = self.query_one("#content_pane_scroll")
+                logger.debug(f"Got right scroll view: {scroll_view}")
+            else:  # 'input' - don't scroll if focus is on input
+                logger.debug("Skipping scroll - input has focus")
+                return
 
             # Perform the scroll action
             if direction == "up":
+                logger.debug("Calling scroll_up")
                 scroll_view.scroll_up(animate=False)
             elif direction == "down":
+                logger.debug("Calling scroll_down")
                 scroll_view.scroll_down(animate=False)
             elif direction == "pageup":
-                scroll_view.page_up()
+                logger.debug("Calling scroll_page_up")
+                scroll_view.scroll_page_up()
             elif direction == "pagedown":
-                scroll_view.page_down()
+                logger.debug("Calling scroll_page_down")
+                scroll_view.scroll_page_down()
+            logger.debug("Scroll action completed")
         except Exception as e:
             logger.exception(f"Error scrolling focused pane: {e}")
 
     def on_mouse_scroll_down(self, event: MouseScrollDown) -> None:
         """Handle mouse scroll down in the focused pane."""
         try:
-            if self._left_pane_focused:
+            if self._focus_state == 'left':
                 scroll_view = self.query_one("#message_log_scroll")
-            else:
+            elif self._focus_state == 'right':
                 scroll_view = self.query_one("#content_pane_scroll")
+            else:  # 'input' - don't scroll
+                return
 
             scroll_view.scroll_down(animate=False)
             event.prevent_default()
@@ -307,10 +376,12 @@ class MadisonTUIApp(TextualApp):
     def on_mouse_scroll_up(self, event: MouseScrollUp) -> None:
         """Handle mouse scroll up in the focused pane."""
         try:
-            if self._left_pane_focused:
+            if self._focus_state == 'left':
                 scroll_view = self.query_one("#message_log_scroll")
-            else:
+            elif self._focus_state == 'right':
                 scroll_view = self.query_one("#content_pane_scroll")
+            else:  # 'input' - don't scroll
+                return
 
             scroll_view.scroll_up(animate=False)
             event.prevent_default()
