@@ -19,6 +19,11 @@ A repository for ideas, refinements, and potential enhancements to Madison.
 - Consider if this feels natural or if other keybindings would be better
 - Could add visual indicator showing which history item is active
 
+### File System Auto-completion and Navigation
+- For `/read`, `/save`, and other file system commands: display available files/directories as user types
+- Allow down arrow navigation to select from available options
+- Real-time file system lookup based on user input path
+
 ## Performance/Architecture Ideas
 
 ### Scrollbuffer Management
@@ -71,7 +76,9 @@ User mentioned "tweaks I alluded to earlier":
 - [ ] Custom keybinding configuration
 - [ ] User preferences/settings system
 - [ ] Plugin/extension system
-- [ ] Session management enhancements
+- [ ] Deep dive: Session lifecycle (saving, loading, versioning, migration, branching)
+- [ ] Deep dive: Agent customization and lifecycle (inheritance, versioning, performance tracking)
+- [ ] MCP server capabilities (as client and/or server)
 - [ ] Context window optimization
 - [ ] Model-specific optimizations
 - [ ] Tool execution improvements
